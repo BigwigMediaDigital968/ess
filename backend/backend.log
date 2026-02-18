@@ -1,0 +1,176 @@
+nohup: ignoring input
+
+> backend@1.0.0 start
+> node src/index.js
+
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  enable debug logging with { debug: true }
+oidc-provider WARNING: configuration cookies.keys is missing, this option is critical to detect and ignore tampered cookies
+oidc-provider WARNING: a quick start development-only in-memory adapter is used, you MUST change it in order to not lose all stateful provider data upon restart and to be able to share these between processes
+oidc-provider WARNING: a quick start development-only signing keys are used, you are expected to provide your own in configuration "jwks" property
+Server running on port 3434
+User Connected: BLpkdtBLeL5OqLpzAAAB
+JsonWebTokenError: jwt must be provided
+    at module.exports [as verify] (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/jsonwebtoken/verify.js:60:17)
+    at protect (/home/rbharathi/Documents/Employee Self Service Portal/backend/src/middleware/authMiddleware.js:14:33)
+    at Layer.handleRequest (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/layer.js:152:17)
+    at next (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:117:3)
+    at handle (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:435:11)
+    at Layer.handleRequest (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/layer.js:152:17)
+    at /home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:295:15
+    at processParams (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:582:12)
+    at next (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:291:5)
+Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client
+    at new NodeError (node:internal/errors:405:5)
+    at ServerResponse.setHeader (node:_http_outgoing:648:11)
+    at ServerResponse.header (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/express/lib/response.js:686:10)
+    at ServerResponse.send (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/express/lib/response.js:163:12)
+    at ServerResponse.json (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/express/lib/response.js:252:15)
+    at protect (/home/rbharathi/Documents/Employee Self Service Portal/backend/src/middleware/authMiddleware.js:35:25)
+    at Layer.handleRequest (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/layer.js:152:17)
+    at next (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:117:3)
+    at handle (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:435:11)
+JsonWebTokenError: jwt must be provided
+    at module.exports [as verify] (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/jsonwebtoken/verify.js:60:17)
+    at protect (/home/rbharathi/Documents/Employee Self Service Portal/backend/src/middleware/authMiddleware.js:14:33)
+    at Layer.handleRequest (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/layer.js:152:17)
+    at next (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:117:3)
+    at handle (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:435:11)
+    at Layer.handleRequest (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/layer.js:152:17)
+    at /home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:295:15
+    at processParams (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:582:12)
+    at next (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:291:5)
+Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client
+    at new NodeError (node:internal/errors:405:5)
+    at ServerResponse.setHeader (node:_http_outgoing:648:11)
+    at ServerResponse.header (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/express/lib/response.js:686:10)
+    at ServerResponse.send (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/express/lib/response.js:163:12)
+    at ServerResponse.json (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/express/lib/response.js:252:15)
+    at protect (/home/rbharathi/Documents/Employee Self Service Portal/backend/src/middleware/authMiddleware.js:35:25)
+    at Layer.handleRequest (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/layer.js:152:17)
+    at next (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:117:3)
+    at handle (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:435:11)
+JsonWebTokenError: jwt must be provided
+    at module.exports [as verify] (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/jsonwebtoken/verify.js:60:17)
+    at protect (/home/rbharathi/Documents/Employee Self Service Portal/backend/src/middleware/authMiddleware.js:14:33)
+    at Layer.handleRequest (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/layer.js:152:17)
+    at next (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:117:3)
+    at handle (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:435:11)
+    at Layer.handleRequest (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/layer.js:152:17)
+    at /home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:295:15
+    at processParams (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:582:12)
+    at next (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:291:5)
+Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client
+    at new NodeError (node:internal/errors:405:5)
+    at ServerResponse.setHeader (node:_http_outgoing:648:11)
+    at ServerResponse.header (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/express/lib/response.js:686:10)
+    at ServerResponse.send (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/express/lib/response.js:163:12)
+    at ServerResponse.json (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/express/lib/response.js:252:15)
+    at protect (/home/rbharathi/Documents/Employee Self Service Portal/backend/src/middleware/authMiddleware.js:35:25)
+    at Layer.handleRequest (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/layer.js:152:17)
+    at next (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:117:3)
+    at handle (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:435:11)
+JsonWebTokenError: jwt must be provided
+    at module.exports [as verify] (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/jsonwebtoken/verify.js:60:17)
+    at protect (/home/rbharathi/Documents/Employee Self Service Portal/backend/src/middleware/authMiddleware.js:14:33)
+    at Layer.handleRequest (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/layer.js:152:17)
+    at next (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:117:3)
+    at handle (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:435:11)
+    at Layer.handleRequest (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/layer.js:152:17)
+    at /home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:295:15
+    at processParams (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:582:12)
+    at next (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:291:5)
+Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client
+    at new NodeError (node:internal/errors:405:5)
+    at ServerResponse.setHeader (node:_http_outgoing:648:11)
+    at ServerResponse.header (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/express/lib/response.js:686:10)
+    at ServerResponse.send (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/express/lib/response.js:163:12)
+    at ServerResponse.json (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/express/lib/response.js:252:15)
+    at protect (/home/rbharathi/Documents/Employee Self Service Portal/backend/src/middleware/authMiddleware.js:35:25)
+    at Layer.handleRequest (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/layer.js:152:17)
+    at next (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:117:3)
+    at handle (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:435:11)
+JsonWebTokenError: jwt must be provided
+    at module.exports [as verify] (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/jsonwebtoken/verify.js:60:17)
+    at protect (/home/rbharathi/Documents/Employee Self Service Portal/backend/src/middleware/authMiddleware.js:14:33)
+    at Layer.handleRequest (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/layer.js:152:17)
+    at next (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:117:3)
+    at handle (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:435:11)
+    at Layer.handleRequest (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/layer.js:152:17)
+    at /home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:295:15
+    at processParams (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:582:12)
+    at next (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:291:5)
+Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client
+    at new NodeError (node:internal/errors:405:5)
+    at ServerResponse.setHeader (node:_http_outgoing:648:11)
+    at ServerResponse.header (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/express/lib/response.js:686:10)
+    at ServerResponse.send (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/express/lib/response.js:163:12)
+    at ServerResponse.json (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/express/lib/response.js:252:15)
+    at protect (/home/rbharathi/Documents/Employee Self Service Portal/backend/src/middleware/authMiddleware.js:35:25)
+    at Layer.handleRequest (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/layer.js:152:17)
+    at next (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:117:3)
+    at handle (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:435:11)
+JsonWebTokenError: jwt must be provided
+    at module.exports [as verify] (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/jsonwebtoken/verify.js:60:17)
+    at protect (/home/rbharathi/Documents/Employee Self Service Portal/backend/src/middleware/authMiddleware.js:14:33)
+    at Layer.handleRequest (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/layer.js:152:17)
+    at next (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:117:3)
+    at handle (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:435:11)
+    at Layer.handleRequest (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/layer.js:152:17)
+    at /home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:295:15
+    at processParams (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:582:12)
+    at next (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:291:5)
+Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client
+    at new NodeError (node:internal/errors:405:5)
+    at ServerResponse.setHeader (node:_http_outgoing:648:11)
+    at ServerResponse.header (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/express/lib/response.js:686:10)
+    at ServerResponse.send (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/express/lib/response.js:163:12)
+    at ServerResponse.json (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/express/lib/response.js:252:15)
+    at protect (/home/rbharathi/Documents/Employee Self Service Portal/backend/src/middleware/authMiddleware.js:35:25)
+    at Layer.handleRequest (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/layer.js:152:17)
+    at next (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/lib/route.js:117:3)
+    at handle (/home/rbharathi/Documents/Employee Self Service Portal/backend/node_modules/router/index.js:435:11)
+User Disconnected BLpkdtBLeL5OqLpzAAAB
+User Connected: KS9lYMcpj0qg3LTDAAAE
+User Disconnected KS9lYMcpj0qg3LTDAAAE
+User Connected: XJlL7lXiVZvLftIcAAAG
+User Disconnected XJlL7lXiVZvLftIcAAAG
+User Connected: 4aTA9Le-yc75TLxlAAAJ
+User Disconnected 4aTA9Le-yc75TLxlAAAJ
+User Connected: X0_oLoJT7aGoW2WqAAAM
+User Disconnected X0_oLoJT7aGoW2WqAAAM
+User Connected: -2QzcSGpSpmBCb4MAAAP
+User Connected: e3j1abCuoD8ese_xAAAS
+User Disconnected e3j1abCuoD8ese_xAAAS
+User Disconnected -2QzcSGpSpmBCb4MAAAP
+User Connected: RsVuOrVve5jYiuHyAAAV
+DEBUG_UPDATE_PAYLOAD: {
+  "name": "Mona",
+  "email": "mona@bigwig.local",
+  "designation": "HR Executive",
+  "roleId": "b0de8b86-79cd-4650-8fe4-ce29b77479e7",
+  "departmentId": "112d8de8-00db-4fb3-a105-f10d8078e3f6",
+  "managerId": "1bbdec33-aa91-41ce-a04c-1a470dd1a66e",
+  "skills": "",
+  "bloodGroup": "O+",
+  "address": ""
+}
+User Disconnected RsVuOrVve5jYiuHyAAAV
+User Connected: UZbOawkXjGfURoYAAAAY
+User Disconnected UZbOawkXjGfURoYAAAAY
+User Connected: MO-tWLZcOzWWNWRlAAAa
+User Disconnected MO-tWLZcOzWWNWRlAAAa
+User Connected: R9LLW36Fv9C8fOFjAAAd
+User Disconnected R9LLW36Fv9C8fOFjAAAd
+Terminated

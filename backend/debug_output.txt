@@ -1,0 +1,65 @@
+--- Organizations ---
+[
+  {
+    "id": "4a9b9474-4436-452e-828f-22288f44cc75",
+    "name": "Bigwig Media Digital - Digital Marketing Company",
+    "address": "Plot # 2, Sanjay Nagar, Gulabi Bagh, New Delhi, Delhi, 110007",
+    "latitude": 28.67522516351931,
+    "longitude": 77.19334845095474,
+    "ownerId": "5470bfb3-6d81-4abe-a85e-8e32fcabaac0",
+    "logoUrl": "/uploads/logos/logo-1770318071137.png",
+    "createdAt": "2026-02-05T18:03:14.945Z",
+    "updatedAt": "2026-02-05T19:01:11.143Z"
+  },
+  {
+    "id": "5f744515-f92b-48b0-bb2f-80e7a9fb61cd",
+    "name": "Sphere",
+    "address": "Tech Park, Bangalore",
+    "latitude": null,
+    "longitude": null,
+    "ownerId": null,
+    "logoUrl": null,
+    "createdAt": "2026-02-05T19:13:19.555Z",
+    "updatedAt": "2026-02-05T19:13:19.555Z"
+  }
+]
+
+--- Users ---
+[
+  {
+    "id": "ef51e9e6-e6af-4e8d-b50c-6a6a76039b14",
+    "name": "Amit Kumar",
+    "email": "amit@sphere.com",
+    "organizationId": "5f744515-f92b-48b0-bb2f-80e7a9fb61cd"
+  },
+  {
+    "id": "87f285e3-716a-48f7-b628-4a61090bc294",
+    "name": "Sneha Gupta",
+    "email": "sneha@sphere.com",
+    "organizationId": "5f744515-f92b-48b0-bb2f-80e7a9fb61cd"
+  },
+  {
+    "id": "46a84d1c-d7f9-44ba-a650-d1c6e0e5a5ac",
+    "name": "Priya Singh",
+    "email": "priya@sphere.com",
+    "organizationId": "5f744515-f92b-48b0-bb2f-80e7a9fb61cd"
+  },
+  {
+    "id": "5470bfb3-6d81-4abe-a85e-8e32fcabaac0",
+    "name": "Aman",
+    "email": "admin@sphere.com",
+    "organizationId": "4a9b9474-4436-452e-828f-22288f44cc75"
+  },
+  {
+    "id": "dafd89d9-3244-4951-b03e-61ba434c582e",
+    "name": "Rahul Sharma",
+    "email": "rahul@sphere.com",
+    "organizationId": "5f744515-f92b-48b0-bb2f-80e7a9fb61cd"
+  },
+  {
+    "id": "bdf28ad4-1242-4ca6-963e-29f840c49ab6",
+    "name": "Mona HR",
+    "email": "mona@sphere.com",
+    "organizationId": "5f744515-f92b-48b0-bb2f-80e7a9fb61cd"
+  }
+]

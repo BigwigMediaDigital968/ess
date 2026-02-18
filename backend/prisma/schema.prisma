@@ -1,0 +1,758 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleType {
+  INDIVIDUAL_CONTRIBUTOR
+  LEADERSHIP
+  EXECUTIVE
+  ADMINISTRATOR
+}
+
+enum LeaveType {
+  CASUAL
+  SICK
+  EARNED
+}
+
+enum AttendanceType {
+  OFFICE
+  WFH
+  ONSITE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DocType {
+  ONBOARDING
+  RESIGNATION
+  DP
+  OTHER
+}
+
+enum HolidayType {
+  PUBLIC
+  OPTIONAL
+}
+
+enum DocumentType {
+  ONBOARDING
+  RESIGNATION
+  PROFILE_PIC
+  EXPERIENCE_LETTER
+  SALARY_SLIP
+  RELIEVING_LETTER
+  OTHER
+}
+
+
+model LeaveBalance {
+  id             String @id @default(uuid())
+  userId         String @unique
+  user           User   @relation(fields: [userId], references: [id])
+  casualLeaves   Float  @default(24) // Default from policy
+  earnedLeaves   Float  @default(20)
+  sickLeaves     Float  @default(10)
+  year           Int    @default(2025)
+  
+  updatedAt      DateTime @updatedAt
+}
+
+model User {
+  id                String       @id @default(uuid())
+  employeeId        String?      @unique // Custom Employee ID (e.g. 001, 002)
+  email             String       @unique
+  password          String
+  name              String
+  
+  // Relations
+  organizationId    String?
+  organization      Organization? @relation(fields: [organizationId], references: [id])
+  
+  // Dynamic Role & Band
+  roleId            String?
+  role              Role?        @relation(fields: [roleId], references: [id])
+  bandId            String?
+  band              Band?        @relation(fields: [bandId], references: [id])
+
+  LegacyRole        LegacyRole   @default(EMPLOYEE) // Keep for backward compatibility migration
+  designation       String?
+  profilePictureUrl String?
+  bloodGroup        String?
+  address           String?      // Keep for backward compatibility or map to presentAddress
+  skills            String[]     // Keep for backward compatibility
+  isActive          Boolean      @default(true)
+
+  // New Onboarding Fields
+  dob               DateTime?
+  personalEmail     String?
+  presentAddress    String?
+  permanentAddress  String?
+  latitude          Float?
+  longitude         Float?
+  
+  // Onboarding Relations
+  skillRecords      Skill[]
+  certifications    Certification[]
+  workExperience    WorkExperience[]
+  departmentId      String?
+  department        Department?  @relation(fields: [departmentId], references: [id])
+  managerId         String?
+  manager           User?        @relation("UserToManager", fields: [managerId], references: [id])
+  subordinates      User[]       @relation("UserToManager")
+  attendances       Attendance[]
+  leaves            Leave[]
+  wfhLocations      WFHLocation[]
+  payrolls          Payroll[]
+  reviews           Performance[] @relation("EmployeeReviews")
+  
+  // New Relations for Payroll & Rostering
+  salaryStructure   SalaryStructure?
+  payrollRecords    PayrollRecord[]
+  rosters           Roster[]
+  givenReviews      Performance[] @relation("ReviewerReviews")
+
+  documents         Document[]
+  
+  // Chat Relations
+  conversations     ConversationParticipant[]
+  sentMessages      Message[]
+  readMessages      MessageReadStatus[]
+
+  leaveBalance      LeaveBalance?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  interviews        Interview[]
+
+  // Appraisal Relations
+  appraisalGoals        AppraisalGoal[]    @relation("EmployeeGoals")
+  goalsSetByMe          AppraisalGoal[]    @relation("ManagerGoals")
+  appraisalReviews      AppraisalReview[]  @relation("EmployeeReviews2")
+  managedReviews        AppraisalReview[]  @relation("ManagerReviews2")
+}
+
+
+enum LegacyRole {
+  EMPLOYEE
+  MANAGER
+  HR
+  ADMIN
+}
+
+model Organization {
+  id          String   @id @default(uuid())
+  name        String
+  address     String?
+  website     String?  // New field
+  latitude    Float?
+  longitude   Float?
+  ownerId     String?  @unique // Ideally links to a User who is the Owner
+  logoUrl     String?
+  configHrAccess Boolean @default(false)
+  configDirectorAccess Boolean @default(false)
+  users       User[]
+  roles       Role[]
+  bands       Band[]
+  holidays    Holiday[]
+
+  leavePolicy LeavePolicy?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Role {
+  id             String       @id @default(uuid())
+  name           String       // e.g. "Software Engineer", "HR Manager", "Director"
+  type           RoleType     @default(INDIVIDUAL_CONTRIBUTOR) 
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  users          User[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([name, organizationId])
+}
+
+model Band {
+  id             String       @id @default(uuid())
+  name           String       // e.g. "L1", "L2", "E1"
+  level          Int          // Numeric level for hierarchy sorting
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  users          User[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([name, organizationId])
+}
+
+model LeavePolicy {
+  id             String       @id @default(uuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  casualLeaves   Int          @default(24)
+  earnedLeaves   Int          @default(20)
+  encashable     Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Holiday {
+  id             String       @id @default(uuid())
+  name           String
+  date           DateTime
+  type           HolidayType  @default(PUBLIC)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  users     User[]
+  jobPostings JobPosting[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Attendance {
+  id        String   @id @default(uuid())
+  date      DateTime
+  clockIn   DateTime
+  clockOut  DateTime?
+  status    AttendanceStatus
+  type      AttendanceType @default(OFFICE)
+  latitude  Float?
+  longitude Float?
+  address   String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Leave {
+  id        String      @id @default(uuid())
+  type      LeaveType
+  startDate DateTime
+  endDate   DateTime
+  reason    String
+  status    LeaveStatus @default(PENDING)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  approverId String?    // ID of the manager who approved/rejected
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model WFHLocation {
+  id        String   @id @default(uuid())
+  address   String
+  latitude  Float
+  longitude Float
+  status    LeaveStatus @default(PENDING)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Payroll {
+  id          String   @id @default(uuid())
+  month       Int
+  year        Int
+  basicSalary Float
+  allowances  Float
+  deductions  Float
+  netPay      Float
+  status      String   @default("PROCESSED")
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Performance {
+  id          String   @id @default(uuid())
+  period      String   // e.g. "Q1 2024"
+  rating      Float // 1-5
+  feedback    String
+  goals       Json?
+  reviewerId  String
+  reviewer    User     @relation("ReviewerReviews", fields: [reviewerId], references: [id])
+  userId      String
+  user        User     @relation("EmployeeReviews", fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Document {
+  id        String   @id @default(uuid())
+  name      String
+  url       String
+  type      DocumentType
+  workExperienceId String?
+  workExperience   WorkExperience? @relation(fields: [workExperienceId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Chat Models
+model Conversation {
+  id        String   @id @default(uuid())
+  name      String?
+  type      ConversationType @default(DIRECT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  participants ConversationParticipant[]
+  messages Message[]
+}
+
+model ConversationParticipant {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  joinedAt       DateTime     @default(now())
+  
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id])
+  content        String?
+  type           MessageType  @default(TEXT)
+  fileUrl        String?
+  approvalStatus ApprovalStatus?
+  referenceId    String?      // Links to Leave ID, WFH ID, etc.
+  createdAt      DateTime     @default(now())
+  readStatus     MessageReadStatus[]
+}
+
+model MessageReadStatus {
+  id        String   @id @default(uuid())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  readAt    DateTime @default(now())
+
+  @@unique([messageId, userId])
+}
+
+// --- PAYROLL & SALARY ---
+
+model SalaryStructure {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id])
+  
+  // Earnings
+  basic            Float    @default(0)
+  hra              Float    @default(0)
+  da               Float    @default(0) // Dearness Allowance
+  travelAllowance  Float    @default(0)
+  medicalAllowance Float    @default(0)
+  specialAllowance Float    @default(0)
+  bonus            Float    @default(0)
+  
+  // Deductions Config (Standard rates or fixed amounts)
+  pfConfig         String   @default("STANDARD_12") // STANDARD_12, FIXED_AMOUNT, NONE
+  pfFixedAmount    Float    @default(0)
+  ptConfig         String   @default("STANDARD_STATE") // STANDARD_STATE, NONE
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model PayrollRecord {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  
+  month           Int
+  year            Int
+  
+  // Usage Stats
+  totalDays       Int
+  workingDays     Int
+  presentDays     Float
+  paidLeaves      Float
+  lopDays         Float
+  
+  // Financials
+  grossEarnings   Float
+  totalDeductions Float
+  netPay          Float
+  
+  // Detailed Components (Snapshot)
+  basic           Float
+  hra             Float
+  da              Float
+  allowances      Float
+  
+  pfEmployee      Float
+  pfEmployer      Float
+  professionalTax Float
+  tds             Float
+  otherDeductions Float
+  
+  // Waiver Logic
+  isLopWaived     Boolean  @default(false)
+  waiverReason    String?
+  waivedBy        String?  // Name/ID of approver
+  
+  status          String   @default("DRAFT") // DRAFT, PROCESSED, PAID
+  generatedAt     DateTime @default(now())
+  
+  @@unique([userId, month, year])
+}
+
+// --- ROSTERING ---
+
+model Shift {
+  id        String   @id @default(uuid())
+  name      String   // e.g., "General", "Morning", "Night"
+  startTime String   // "09:00"
+  endTime   String   // "18:00"
+  
+  // Break info could be added
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  rosters   Roster[]
+}
+
+model Roster {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  date      DateTime @db.Date // Specific date
+  shiftId   String
+  shift     Shift    @relation(fields: [shiftId], references: [id])
+  
+  assignedBy String? // Manager ID
+  createdAt  DateTime @default(now())
+  
+  @@unique([userId, date])
+}
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  APPROVAL_REQUEST
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum WorkLocation {
+  REMOTE
+  OFFICE
+  CLIENT
+}
+
+// --- ONBOARDING MODELS ---
+
+model Skill {
+  id              String   @id @default(uuid())
+  name            String
+  experienceYears Float?
+  rating          Float?   // 1-5
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Certification {
+  id              String   @id @default(uuid())
+  name            String
+  issuingOrg      String
+  credentialUrl   String?
+  issueDate       DateTime?
+  expiryDate      DateTime?
+  imageUrl        String?  // Badge image URL
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model WorkExperience {
+  id              String   @id @default(uuid())
+  companyName     String
+  designation     String
+  startDate       DateTime
+  endDate         DateTime?
+  description     String?
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  documents       Document[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// --- TALENT ACQUISITION SYSTEM (TAS) MODELS ---
+
+enum JobStatus {
+  OPEN
+  CLOSED
+  DRAFT
+  HOLD
+}
+
+enum ApplicationStatus {
+  APPLIED
+  SCREENING
+  ASSESSMENT
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+}
+
+enum AssessmentType {
+  TECHNICAL
+  BEHAVIORAL
+  CODING
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum OfferStatus {
+  GENERATED
+  SENT
+  ACCEPTED
+  REJECTED
+}
+
+model JobPosting {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  requirements String? 
+  departmentId String?
+  department  Department? @relation(fields: [departmentId], references: [id])
+  location    String?
+  type        String? // Full-time, Contract
+  salaryRange String?
+  status      JobStatus @default(OPEN)
+  postedBy    String? // User ID of HR/Manager
+  
+  applications Application[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Candidate {
+  id          String   @id @default(uuid())
+  firstName   String
+  lastName    String
+  email       String   @unique
+  phone       String?
+  resumeUrl   String?
+  skills      String[] // Parsed skills
+  experienceYears Float?
+  
+  applications Application[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Application {
+  id          String            @id @default(uuid())
+  jobId       String
+  job         JobPosting        @relation(fields: [jobId], references: [id])
+  candidateId String
+  candidate   Candidate         @relation(fields: [candidateId], references: [id])
+  status      ApplicationStatus @default(APPLIED)
+  aiScore     Float?            // calculated matchmaking score
+  
+  assessments Assessment[]
+  interviews  Interview[]
+  offers      Offer[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Assessment {
+  id            String         @id @default(uuid())
+  applicationId String
+  application   Application    @relation(fields: [applicationId], references: [id])
+  type          AssessmentType
+  questions     Json?          // AI generated questions
+  responses     Json?          // Candidate answers
+  score         Int?
+  analysisReport String? // AI generated feedback
+  status        String   @default("PENDING") // PENDING, COMPLETED, REVIEWED 
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Interview {
+  id            String          @id @default(uuid())
+  applicationId String
+  application   Application     @relation(fields: [applicationId], references: [id])
+  interviewerId String
+  interviewer   User            @relation(fields: [interviewerId], references: [id])
+  round         String          // "Technical 1", "Managerial"
+  scheduledAt   DateTime
+  feedback      String?
+  rating        Float?
+  status        InterviewStatus @default(SCHEDULED)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Offer {
+  id            String      @id @default(uuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id])
+  basicSalary   Float
+  allowances    Float
+  joiningDate   DateTime
+  status        OfferStatus @default(GENERATED)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ─── Appraisal Cycle ──────────────────────────────────────────────────────────
+
+model AppraisalCycle {
+  id        String          @id @default(uuid())
+  quarter   Int             // 1-4
+  year      Int
+  status    AppraisalStatus @default(OPEN)
+  goals     AppraisalGoal[]
+  reviews   AppraisalReview[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@unique([quarter, year])
+}
+
+model AppraisalGoal {
+  id          String         @id @default(uuid())
+  cycleId     String
+  cycle       AppraisalCycle @relation(fields: [cycleId], references: [id])
+  userId      String
+  user        User           @relation("EmployeeGoals", fields: [userId], references: [id])
+  setById     String
+  setBy       User           @relation("ManagerGoals", fields: [setById], references: [id])
+  title       String
+  description String?
+  weight      Float          @default(100) // % weightage, sum should be 100
+  status      GoalStatus     @default(PENDING)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model AppraisalReview {
+  id              String         @id @default(uuid())
+  cycleId         String
+  cycle           AppraisalCycle @relation(fields: [cycleId], references: [id])
+  userId          String
+  user            User           @relation("EmployeeReviews2", fields: [userId], references: [id])
+  managerId       String?
+  manager         User?          @relation("ManagerReviews2", fields: [managerId], references: [id])
+
+  // Self Assessment
+  selfRating      Float?         // 1-5
+  selfComment     String?
+  selfSubmittedAt DateTime?
+
+  // Manager Assessment
+  managerRating   Float?         // 1-5
+  managerComment  String?
+  managerApproved Boolean        @default(false)
+  managerReviewedAt DateTime?
+
+  // HR / Final
+  finalRating     Float?         // Computed: avg of 4 quarters
+  salaryHike      Float?         // % hike
+  hikeAmount      Float?         // Absolute ₹ amount
+  hrApproved      Boolean        @default(false)
+  publishedAt     DateTime?
+
+  status          ReviewStatus   @default(PENDING)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([cycleId, userId])
+}
+
+enum AppraisalStatus {
+  OPEN
+  SELF_ASSESSMENT
+  MANAGER_REVIEW
+  HR_REVIEW
+  PUBLISHED
+}
+
+enum GoalStatus {
+  PENDING
+  ACHIEVED
+  PARTIAL
+  MISSED
+}
+
+enum ReviewStatus {
+  PENDING
+  SELF_DONE
+  MANAGER_DONE
+  HR_APPROVED
+  PUBLISHED
+}
