@@ -1,0 +1,2 @@
+CREATE DATABASE ess_db;
+CREATE DATABASE nextcloud;

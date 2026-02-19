@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
+import { API_BASE_URL } from "../../utils/config";
 import { useAuth } from "../../context/AuthContext";
-import { X, Upload, FileText, User, Check, IdCard, Briefcase, UserPen } from "lucide-react";
+import { X, Upload, FileText, User, Check, IdCard, Briefcase, UserPen, LogOut, RotateCcw } from "lucide-react";
 import VirtualIDCard from "../VirtualIDCard";
 
 const EmployeeActionModal = ({ employee, onClose, onUpdate, roles, potentialManagers, departments }) => {
@@ -23,6 +24,14 @@ const EmployeeActionModal = ({ employee, onClose, onUpdate, roles, potentialMana
     });
 
     const [files, setFiles] = useState({ profile: null, document: null });
+
+    // Off-boarding state
+    const [offboardData, setOffboardData] = useState({
+        exitDate: employee.exitDate ? new Date(employee.exitDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        exitReason: employee.exitReason || 'RESIGNATION',
+        exitNotes: employee.exitNotes || ''
+    });
+    const [offboardLoading, setOffboardLoading] = useState(false);
 
     useEffect(() => {
         const fetchOrg = async () => {
@@ -112,13 +121,16 @@ const EmployeeActionModal = ({ employee, onClose, onUpdate, roles, potentialMana
                     <div className="flex items-center gap-6">
                         <div className="relative">
                             <img
-                                src={employee.profilePictureUrl ? `http://localhost:3434${employee.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${employee.name}&background=random`}
+                                src={employee.profilePictureUrl ? `${API_BASE_URL}${employee.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${employee.name}&background=random`}
                                 className="w-20 h-20 rounded-full border-4 border-purple-500/50 shadow-xl"
                             />
-                            <div className="absolute -bottom-1 -right-1 bg-green-500 w-5 h-5 rounded-full border-4 border-gray-900"></div>
+                            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-4 border-gray-900" style={{ backgroundColor: employee.isActive !== false ? '#22c55e' : '#ef4444' }}></div>
                         </div>
                         <div>
-                            <h2 className="text-3xl font-bold text-white">{employee.name}</h2>
+                            <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+                                {employee.name}
+                                {employee.isActive === false && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded-full font-medium">OFF-BOARDED</span>}
+                            </h2>
                             <p className="text-purple-300 font-medium tracking-wide flex items-center gap-2">
                                 <Briefcase size={16} /> {employee.designation || "No Designation"}
                             </p>
@@ -136,6 +148,9 @@ const EmployeeActionModal = ({ employee, onClose, onUpdate, roles, potentialMana
                     </button>
                     <button onClick={() => setActiveTab("idcard")} className={`flex-1 py-4 text-center font-bold tracking-wide transition ${activeTab === "idcard" ? "bg-purple-600/20 text-purple-300 border-b-2 border-purple-500" : "text-gray-400 hover:text-white"}`}>
                         <span className="flex items-center justify-center gap-2"><IdCard size={18} /> ID Card</span>
+                    </button>
+                    <button onClick={() => setActiveTab("offboard")} className={`flex-1 py-4 text-center font-bold tracking-wide transition ${activeTab === "offboard" ? "bg-red-600/20 text-red-300 border-b-2 border-red-500" : "text-gray-400 hover:text-white"}`}>
+                        <span className="flex items-center justify-center gap-2"><LogOut size={18} /> Off-board</span>
                     </button>
                 </div>
 
@@ -294,6 +309,106 @@ const EmployeeActionModal = ({ employee, onClose, onUpdate, roles, potentialMana
                         <div className="flex flex-col items-center py-8 gap-4">
                             <p className="text-gray-400 mb-4 text-center max-w-sm">This digital ID card is automatically generated based on the employee's current profile.</p>
                             <VirtualIDCard user={{ ...employee, ...formData }} organization={orgData} />
+                        </div>
+                    )}
+                    {activeTab === "offboard" && (
+                        <div className="space-y-6">
+                            {employee.isActive !== false ? (
+                                <>
+                                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6">
+                                        <h3 className="text-red-400 font-bold text-lg mb-2 flex items-center gap-2"><LogOut size={20} /> Off-Board Employee</h3>
+                                        <p className="text-gray-400 text-sm">This will deactivate the employee's account and prevent them from logging in. Their data will be preserved.</p>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="text-gray-400 text-xs uppercase font-bold tracking-wider">Exit Date</label>
+                                            <input
+                                                type="date"
+                                                value={offboardData.exitDate}
+                                                onChange={e => setOffboardData({ ...offboardData, exitDate: e.target.value })}
+                                                className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:border-red-500 outline-none mt-1"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-gray-400 text-xs uppercase font-bold tracking-wider">Exit Reason</label>
+                                            <select
+                                                value={offboardData.exitReason}
+                                                onChange={e => setOffboardData({ ...offboardData, exitReason: e.target.value })}
+                                                className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:border-red-500 outline-none mt-1"
+                                            >
+                                                <option value="RESIGNATION" className="text-black">Resignation</option>
+                                                <option value="TERMINATION" className="text-black">Termination</option>
+                                                <option value="RETIREMENT" className="text-black">Retirement</option>
+                                                <option value="CONTRACT_END" className="text-black">Contract End</option>
+                                                <option value="OTHER" className="text-black">Other</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-gray-400 text-xs uppercase font-bold tracking-wider">Exit Notes</label>
+                                        <textarea
+                                            value={offboardData.exitNotes}
+                                            onChange={e => setOffboardData({ ...offboardData, exitNotes: e.target.value })}
+                                            className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:border-red-500 outline-none mt-1 min-h-[120px]"
+                                            placeholder="Reason details, handover notes, final remarks..."
+                                        />
+                                    </div>
+
+                                    <button
+                                        onClick={async () => {
+                                            if (!confirm(`Are you sure you want to off-board ${employee.name}? They will no longer be able to login.`)) return;
+                                            setOffboardLoading(true);
+                                            try {
+                                                await api.post(`/employees/${employee.id}/offboard`, offboardData);
+                                                alert(`${employee.name} has been successfully off-boarded.`);
+                                                onUpdate();
+                                                onClose();
+                                            } catch (err) {
+                                                alert(err.response?.data?.message || 'Off-boarding failed');
+                                            } finally {
+                                                setOffboardLoading(false);
+                                            }
+                                        }}
+                                        disabled={offboardLoading}
+                                        className="w-full py-4 bg-red-600 rounded-xl text-white font-bold hover:bg-red-500 shadow-lg shadow-red-900/50 transition transform hover:scale-[1.01]"
+                                    >
+                                        {offboardLoading ? 'Processing...' : 'Confirm Off-Boarding'}
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-6">
+                                        <h3 className="text-yellow-400 font-bold text-lg mb-2">Employee is Off-Boarded</h3>
+                                        <p className="text-gray-400 text-sm">This employee was off-boarded on <strong className="text-white">{employee.exitDate ? new Date(employee.exitDate).toLocaleDateString() : 'N/A'}</strong></p>
+                                        <p className="text-gray-400 text-sm mt-1">Reason: <strong className="text-white capitalize">{employee.exitReason?.toLowerCase().replace('_', ' ') || 'N/A'}</strong></p>
+                                        {employee.exitNotes && <p className="text-gray-400 text-sm mt-1">Notes: <em className="text-gray-300">{employee.exitNotes}</em></p>}
+                                    </div>
+
+                                    <button
+                                        onClick={async () => {
+                                            if (!confirm(`Are you sure you want to reactivate ${employee.name}?`)) return;
+                                            setOffboardLoading(true);
+                                            try {
+                                                await api.post(`/employees/${employee.id}/reactivate`);
+                                                alert(`${employee.name} has been reactivated.`);
+                                                onUpdate();
+                                                onClose();
+                                            } catch (err) {
+                                                alert(err.response?.data?.message || 'Reactivation failed');
+                                            } finally {
+                                                setOffboardLoading(false);
+                                            }
+                                        }}
+                                        disabled={offboardLoading}
+                                        className="w-full py-4 bg-green-600 rounded-xl text-white font-bold hover:bg-green-500 shadow-lg shadow-green-900/50 transition transform hover:scale-[1.01] flex items-center justify-center gap-2"
+                                    >
+                                        <RotateCcw size={20} />
+                                        {offboardLoading ? 'Processing...' : 'Reactivate Employee'}
+                                    </button>
+                                </>
+                            )}
                         </div>
                     )}
                 </div>

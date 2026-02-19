@@ -1,0 +1,4 @@
+-- AlterTable: Add off-boarding fields
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "exitDate" TIMESTAMP(3);
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "exitReason" TEXT;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "exitNotes" TEXT;

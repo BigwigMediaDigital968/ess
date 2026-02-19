@@ -8,7 +8,7 @@ exports.createEmployee = async (req, res) => {
 
     try {
         console.log("DEBUG_CREATE_PAYLOAD:", JSON.stringify(req.body, null, 2));
-        const salt = await bcrypt.genSalt(10);
+        const salt = await bcrypt.genSalt(12);
         const hashedPassword = await bcrypt.hash(password, salt);
 
         const userData = {
@@ -41,7 +41,8 @@ exports.createEmployee = async (req, res) => {
         const user = await prisma.user.create({
             data: userData,
         });
-        res.status(201).json(user);
+        const { password: _, ...safeUser } = user;
+        res.status(201).json(safeUser);
     } catch (error) {
         console.error("Create Employee Error:", error);
         res.status(500).json({ message: error.message });
@@ -54,12 +55,13 @@ exports.getEmployees = async (req, res) => {
             include: {
                 department: true,
                 manager: {
-                    select: { name: true }
+                    select: { id: true, name: true }
                 },
-                role: true // Include Role
+                role: true
             }
         });
-        res.json(employees);
+        const safeEmployees = employees.map(({ password, ...e }) => e);
+        res.json(safeEmployees);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -77,7 +79,10 @@ exports.getEmployeeById = async (req, res) => {
                 role: true
             }
         });
-        if (user) res.json(user);
+        if (user) {
+            const { password, ...safeUser } = user;
+            res.json(safeUser);
+        }
         else res.status(404).json({ message: 'User not found' });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -101,7 +106,8 @@ exports.updateProfile = async (req, res) => {
             where: { id: req.user.id },
             data: updateData,
         });
-        res.json(user);
+        const { password: _, ...safeUser } = user;
+        res.json(safeUser);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -168,7 +174,8 @@ exports.updateEmployee = async (req, res) => {
             where: { id },
             data: updateData
         });
-        res.json(user);
+        const { password: _, ...safeUser } = user;
+        res.json(safeUser);
     } catch (error) {
         console.error("Update Employee Error:", error);
         res.status(500).json({ message: error.message });
@@ -188,7 +195,8 @@ exports.uploadEmployeeFile = async (req, res) => {
                 where: { id },
                 data: { profilePictureUrl: `/uploads/${req.file.filename}` }
             });
-            return res.json(user);
+            const { password: _, ...safeUser } = user;
+            return res.json(safeUser);
         } else {
             // Document
             const doc = await prisma.document.create({

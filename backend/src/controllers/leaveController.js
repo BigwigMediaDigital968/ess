@@ -28,6 +28,11 @@ exports.applyLeave = async (req, res) => {
             include: { user: true }
         });
 
+        // Auto-approved owner leave → mark roster as SL
+        if (status === 'APPROVED') {
+            await markRosterAsSL(leave);
+        }
+
         // Chat Integration: Send Approval Request to Manager
         if (req.user.managerId) {
             try {
@@ -132,11 +137,51 @@ exports.updateLeaveStatus = async (req, res) => {
             console.error("Failed to update chat message:", chatError);
         }
 
+        // ── Auto-mark roster as SL when leave is approved ────────────
+        if (status === 'APPROVED') {
+            await markRosterAsSL(leave);
+        }
+
         res.json(leave);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
+
+// ── Helper: update roster to SL for approved leave dates ─────────────────
+async function markRosterAsSL(leave) {
+    try {
+        // Find the SL shift
+        const slShift = await prisma.shift.findFirst({ where: { name: 'SL' } });
+        if (!slShift) {
+            console.warn('[ROSTER] SL shift not found — cannot mark roster. Run seed first.');
+            return;
+        }
+
+        const start = new Date(leave.startDate);
+        const end = new Date(leave.endDate);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(0, 0, 0, 0);
+
+        const current = new Date(start);
+        while (current <= end) {
+            const dateOnly = new Date(current);
+            dateOnly.setHours(0, 0, 0, 0);
+
+            await prisma.roster.upsert({
+                where: { userId_date: { userId: leave.userId, date: dateOnly } },
+                update: { shiftId: slShift.id, assignedBy: leave.approverId || leave.userId },
+                create: { userId: leave.userId, date: dateOnly, shiftId: slShift.id, assignedBy: leave.approverId || leave.userId }
+            });
+
+            current.setDate(current.getDate() + 1);
+        }
+
+        console.log(`[ROSTER] Marked SL for ${leave.userId} from ${start.toISOString().split('T')[0]} to ${end.toISOString().split('T')[0]}`);
+    } catch (err) {
+        console.error('[ROSTER] Failed to mark SL:', err.message);
+    }
+}
 
 exports.getMyLeaves = async (req, res) => {
     try {

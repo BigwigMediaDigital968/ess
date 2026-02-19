@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { API_BASE_URL } from "../utils/config";
 import api from "../utils/api";
 import { Search, FileText, Mail, Phone, Briefcase } from "lucide-react";
 
@@ -62,7 +63,7 @@ const CandidateDatabase = () => {
                             </div>
                             {c.resumeUrl && (
                                 <a
-                                    href={`http://localhost:3434${c.resumeUrl}`}
+                                    href={`${API_BASE_URL}${c.resumeUrl}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     download

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { API_BASE_URL } from "../utils/config";
 import { useAuth } from "../context/AuthContext";
 import { IndianRupee, Users, ChevronDown, ChevronUp, Save, RefreshCw, Calculator, Info } from "lucide-react";
 
@@ -243,7 +244,7 @@ const SalaryManagement = () => {
                                 className={`w-full text-left px-4 py-3 border-b border-white/5 hover:bg-white/5 transition flex items-center gap-3 ${selectedEmp?.id === emp.id ? 'bg-purple-500/10 border-l-2 border-l-purple-500' : ''}`}
                             >
                                 <img
-                                    src={emp.profilePictureUrl ? `http://localhost:3434${emp.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${emp.name}&background=random&size=32`}
+                                    src={emp.profilePictureUrl ? `${API_BASE_URL}${emp.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${emp.name}&background=random&size=32`}
                                     className="w-8 h-8 rounded-full"
                                     alt={emp.name}
                                 />

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { API_BASE_URL } from "../../utils/config";
 import { useAuth } from "../../context/AuthContext";
 import { Card } from "../ui/Card";
 import { UserPlus, UserCog } from "lucide-react";
@@ -193,7 +194,7 @@ const EmployeeManagement = () => {
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center border border-white/10 overflow-hidden">
                                                     <img
-                                                        src={emp.profilePictureUrl ? `http://localhost:3434${emp.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${emp.name}&background=random`}
+                                                        src={emp.profilePictureUrl ? `${API_BASE_URL}${emp.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${emp.name}&background=random`}
                                                         className="w-full h-full object-cover"
                                                     />
                                                 </div>

@@ -6,8 +6,8 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 
 // HR, Director, and Owner can manage salary structures
 router.post('/structure', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIRECTOR'), salaryController.upsertSalaryStructure);
-router.get('/structure/:userId', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIRECTOR', 'MANAGER'), salaryController.getSalaryStructure);
-router.get('/all', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIRECTOR', 'MANAGER'), salaryController.getAllEmployeeSalaries);
+router.get('/structure/:userId', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIRECTOR'), salaryController.getSalaryStructure);
+router.get('/all', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIRECTOR'), salaryController.getAllEmployeeSalaries);
 router.get('/preview/:userId', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIRECTOR'), salaryController.computeSalaryPreview);
 
 // Payroll generation and records

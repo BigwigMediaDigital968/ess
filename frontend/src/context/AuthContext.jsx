@@ -1,9 +1,10 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
+import { API_URL } from "../utils/config";
 
 // Create Axios Instance
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || "http://localhost:3434/api",
+    baseURL: API_URL,
 });
 
 const AuthContext = createContext();

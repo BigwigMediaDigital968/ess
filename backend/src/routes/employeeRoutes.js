@@ -15,4 +15,9 @@ router.put('/:id', protect, admin, require('../controllers/employeeController').
 
 router.post('/:id/upload', protect, admin, upload.single('file'), require('../controllers/employeeController').uploadEmployeeFile);
 
+// Off-boarding
+const { offboardEmployee, reactivateEmployee } = require('../controllers/offboardingController');
+router.post('/:id/offboard', protect, admin, offboardEmployee);
+router.post('/:id/reactivate', protect, admin, reactivateEmployee);
+
 module.exports = router;

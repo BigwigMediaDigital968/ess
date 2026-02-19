@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { API_BASE_URL } from "../utils/config";
 import { useAuth } from "../context/AuthContext";
 import { MessageCircle, Send, Paperclip, Smile, MoreVertical, Search, File, Image as ImageIcon, X, Plus, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,7 +24,7 @@ const Chat = () => {
 
     // Initialize Socket
     useEffect(() => {
-        const newSocket = io("http://localhost:3434");
+        const newSocket = io("${API_BASE_URL}");
         setSocket(newSocket);
 
         return () => newSocket.close();
@@ -212,7 +213,7 @@ const Chat = () => {
                                     >
                                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center overflow-hidden">
                                             {u.profilePictureUrl ? (
-                                                <img src={`http://localhost:3434${u.profilePictureUrl}`} alt={u.name} className="w-full h-full object-cover" />
+                                                <img src={`${API_BASE_URL}${u.profilePictureUrl}`} alt={u.name} className="w-full h-full object-cover" />
                                             ) : (
                                                 <span className="font-bold text-white">{u.name?.charAt(0)}</span>
                                             )}
@@ -268,7 +269,7 @@ const Chat = () => {
                                 <div className="relative">
                                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-violet-600 flex items-center justify-center overflow-hidden">
                                         {otherUser.profilePictureUrl ? (
-                                            <img src={`http://localhost:3434${otherUser.profilePictureUrl}`} alt={otherUser.name} className="w-full h-full object-cover" />
+                                            <img src={`${API_BASE_URL}${otherUser.profilePictureUrl}`} alt={otherUser.name} className="w-full h-full object-cover" />
                                         ) : (
                                             <span className="font-bold text-white">{otherUser.name?.charAt(0)}</span>
                                         )}
@@ -296,7 +297,7 @@ const Chat = () => {
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-violet-600 flex items-center justify-center overflow-hidden">
                                     {getOtherParticipant(selectedConversation).profilePictureUrl ? (
-                                        <img src={`http://localhost:3434${getOtherParticipant(selectedConversation).profilePictureUrl}`} alt="User" className="w-full h-full object-cover" />
+                                        <img src={`${API_BASE_URL}${getOtherParticipant(selectedConversation).profilePictureUrl}`} alt="User" className="w-full h-full object-cover" />
                                     ) : (
                                         <span className="font-bold text-white">{getOtherParticipant(selectedConversation).name?.charAt(0)}</span>
                                     )}
@@ -324,10 +325,10 @@ const Chat = () => {
                                             isMe ? "bg-violet-600 text-white rounded-br-none" : "bg-white/10 text-gray-200 rounded-bl-none"
                                         )}>
                                             {msg.type === 'IMAGE' && (
-                                                <img src={`http://localhost:3434${msg.fileUrl}`} alt="Shared" className="rounded-lg mb-2 max-w-full" />
+                                                <img src={`${API_BASE_URL}${msg.fileUrl}`} alt="Shared" className="rounded-lg mb-2 max-w-full" />
                                             )}
                                             {msg.type === 'FILE' && (
-                                                <a href={`http://localhost:3434${msg.fileUrl}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-black/20 p-2 rounded-lg hover:bg-black/30 transition-colors">
+                                                <a href={`${API_BASE_URL}${msg.fileUrl}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-black/20 p-2 rounded-lg hover:bg-black/30 transition-colors">
                                                     <File className="w-4 h-4" />
                                                     <span className="text-sm underline">Download File</span>
                                                 </a>

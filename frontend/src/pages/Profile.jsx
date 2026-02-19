@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { API_BASE_URL } from "../utils/config";
 import { useAuth } from "../context/AuthContext";
 import VirtualIDCard from "../components/VirtualIDCard";
 import { User, Mail, Briefcase, MapPin, Droplet, Camera, Upload } from "lucide-react";
@@ -63,7 +64,7 @@ const Profile = () => {
                         {orgData?.logoUrl && (
                             <div className="absolute top-0 right-0 p-4 opacity-50 pointer-events-none">
                                 <img
-                                    src={`http://localhost:3434${orgData.logoUrl}`}
+                                    src={`${API_BASE_URL}${orgData.logoUrl}`}
                                     alt="Org Logo"
                                     className="w-24 h-24 object-contain"
                                 />
@@ -71,7 +72,7 @@ const Profile = () => {
                         )}
                         <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                             <img
-                                src={user.profilePictureUrl ? `http://localhost:3434${user.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${user.name}&background=random`}
+                                src={user.profilePictureUrl ? `${API_BASE_URL}${user.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${user.name}&background=random`}
                                 className="w-24 h-24 rounded-full border-4 border-purple-500/50 object-cover transition-opacity group-hover:opacity-75"
                             />
                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">

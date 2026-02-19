@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { API_BASE_URL } from "../utils/config";
 import { motion } from "framer-motion";
 import { Download, Building2, User, Calendar, IndianRupee, TrendingUp, Shield } from "lucide-react";
 import jsPDF from "jspdf";
@@ -19,7 +20,7 @@ const SlipContent = ({ data }) => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                         {org.logoUrl && (
-                            <img src={`http://localhost:3434${org.logoUrl}`} alt="Logo"
+                            <img src={`${API_BASE_URL}${org.logoUrl}`} alt="Logo"
                                 style={{ height: '48px', objectFit: 'contain', marginBottom: '12px', filter: 'brightness(0) invert(1)' }} />
                         )}
                         <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 700, letterSpacing: '0.5px' }}>{org.name}</h1>

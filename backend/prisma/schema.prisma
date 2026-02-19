@@ -30,6 +30,7 @@ enum AttendanceStatus {
   PRESENT
   ABSENT
   HALF_DAY
+  LATE
 }
 
 enum LeaveStatus {
@@ -104,6 +105,11 @@ model User {
   skills            String[]     // Keep for backward compatibility
   isActive          Boolean      @default(true)
 
+  // Off-boarding fields
+  exitDate          DateTime?
+  exitReason        String?      // RESIGNATION, TERMINATION, RETIREMENT, CONTRACT_END, OTHER
+  exitNotes         String?
+
   // New Onboarding Fields
   dob               DateTime?
   personalEmail     String?
@@ -169,6 +175,11 @@ model Organization {
   longitude   Float?
   ownerId     String?  @unique // Ideally links to a User who is the Owner
   logoUrl     String?
+  primaryColor   String?  @default("#a855f7") // Purple default
+  accentColor    String?  @default("#ec4899") // Pink default
+  themeMode      String?  @default("dark")    // "light", "dark", "system"
+  loginBgUrl     String?  // Custom login background image/video URL
+  loginBgType    String?  @default("gradient") // "gradient", "image", "video"
   configHrAccess Boolean @default(false)
   configDirectorAccess Boolean @default(false)
   users       User[]

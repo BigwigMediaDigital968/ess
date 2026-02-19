@@ -16,7 +16,7 @@ exports.onboardEmployee = async (req, res) => {
         } = req.body;
 
         const name = `${firstName} ${lastName}`;
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(password, 12);
 
         // 1. Create User
         // Check if email exists
@@ -154,7 +154,8 @@ exports.onboardEmployee = async (req, res) => {
             }
         }
 
-        res.status(201).json({ message: "Employee onboarded successfully", user });
+        const { password: _, ...safeUser } = user;
+        res.status(201).json({ message: "Employee onboarded successfully", user: safeUser });
 
     } catch (error) {
         console.error(error);

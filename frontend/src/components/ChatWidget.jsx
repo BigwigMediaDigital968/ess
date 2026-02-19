@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { API_BASE_URL } from "../utils/config";
 import { useAuth } from "../context/AuthContext";
 import { MessageCircle, Send, Paperclip, Smile, MoreVertical, Search, File, X, Minus, MessageSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -32,7 +33,7 @@ const ChatWidget = () => {
     // Initialize Socket
     useEffect(() => {
         if (!user) return;
-        const newSocket = io("http://localhost:3434");
+        const newSocket = io(API_BASE_URL);
         setSocket(newSocket);
 
         return () => newSocket.close();
@@ -255,7 +256,7 @@ const ChatWidget = () => {
                                             </button>
                                             <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center overflow-hidden">
                                                 <img
-                                                    src={getOtherParticipant(selectedConversation).profilePictureUrl ? `http://localhost:3434${getOtherParticipant(selectedConversation).profilePictureUrl}` : `https://ui-avatars.com/api/?name=${getOtherParticipant(selectedConversation).name}`}
+                                                    src={getOtherParticipant(selectedConversation).profilePictureUrl ? `${API_BASE_URL}${getOtherParticipant(selectedConversation).profilePictureUrl}` : `https://ui-avatars.com/api/?name=${getOtherParticipant(selectedConversation).name}`}
                                                     className="w-full h-full object-cover"
                                                 />
                                             </div>
@@ -318,7 +319,7 @@ const ChatWidget = () => {
                                             >
                                                 <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
                                                     <img
-                                                        src={getOtherParticipant(conv).profilePictureUrl ? `http://localhost:3434${getOtherParticipant(conv).profilePictureUrl}` : `https://ui-avatars.com/api/?name=${getOtherParticipant(conv).name}`}
+                                                        src={getOtherParticipant(conv).profilePictureUrl ? `${API_BASE_URL}${getOtherParticipant(conv).profilePictureUrl}` : `https://ui-avatars.com/api/?name=${getOtherParticipant(conv).name}`}
                                                         className="w-full h-full object-cover"
                                                     />
                                                 </div>
@@ -340,7 +341,7 @@ const ChatWidget = () => {
                                             >
                                                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center overflow-hidden shrink-0">
                                                     <img
-                                                        src={u.profilePictureUrl ? `http://localhost:3434${u.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${u.name}`}
+                                                        src={u.profilePictureUrl ? `${API_BASE_URL}${u.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${u.name}`}
                                                         className="w-full h-full object-cover"
                                                     />
                                                 </div>
@@ -364,7 +365,7 @@ const ChatWidget = () => {
                                                 "max-w-[80%] rounded-2xl p-2 px-3 text-sm",
                                                 msg.senderId === user.id ? "bg-purple-600 text-white rounded-br-none" : "bg-white/10 text-gray-200 rounded-bl-none"
                                             )}>
-                                                {msg.type === 'IMAGE' && <img src={`http://localhost:3434${msg.fileUrl}`} className="rounded-lg mb-1 max-w-full" />}
+                                                {msg.type === 'IMAGE' && <img src={`${API_BASE_URL}${msg.fileUrl}`} className="rounded-lg mb-1 max-w-full" />}
                                                 {msg.content}
                                                 <span className="text-[9px] opacity-60 block text-right mt-1">
                                                     {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

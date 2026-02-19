@@ -208,6 +208,23 @@ async function main() {
         }
     }
 
+    // ── Seed default Shifts ──────────────────────────────────────────────────
+    const defaultShifts = [
+        { name: 'General', startTime: '09:00', endTime: '18:00' },
+        { name: 'Morning', startTime: '06:00', endTime: '14:00' },
+        { name: 'Night', startTime: '22:00', endTime: '06:00' },
+        { name: 'WO', startTime: '00:00', endTime: '00:00' },
+        { name: 'GH', startTime: '00:00', endTime: '00:00' },
+        { name: 'SL', startTime: '00:00', endTime: '00:00' },
+    ];
+    for (const s of defaultShifts) {
+        const existing = await prisma.shift.findFirst({ where: { name: s.name } });
+        if (!existing) {
+            await prisma.shift.create({ data: s });
+            console.log(`Shift ${s.name} created.`);
+        }
+    }
+
     console.log("Seeding completed.");
 }
 

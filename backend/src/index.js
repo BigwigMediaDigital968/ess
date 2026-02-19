@@ -12,7 +12,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:5173",
+        origin: process.env.FRONTEND_URL || "http://localhost:5173",
         methods: ["GET", "POST", "PUT", "DELETE"],
     },
 });
@@ -85,6 +85,7 @@ app.use('/api/onboarding', require('./routes/onboardingRoutes'));
 app.use('/api/talent', require('./routes/talentRoutes'));
 app.use('/api/reports', require('./routes/reportsRoutes'));
 app.use('/api/appraisal', require('./routes/appraisalRoutes'));
+app.use('/api/roster', require('./routes/rosterRoutes'));
 
 
 
@@ -94,7 +95,7 @@ const { Provider } = require('oidc-provider');
 const oidcConfiguration = require('./oidc/configuration');
 const oidcRoutes = require('./oidc/routes');
 
-const oidc = new Provider('http://ess_portal:3434', oidcConfiguration);
+const oidc = new Provider(process.env.OIDC_ISSUER || 'http://ess_portal:3434', oidcConfiguration);
 
 // Trust proxy if behind reverse proxy (Docker)
 app.enable('trust proxy');

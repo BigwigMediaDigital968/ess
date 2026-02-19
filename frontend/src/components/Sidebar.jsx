@@ -1,7 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
+import { API_BASE_URL } from "../utils/config";
 import { useAuth } from "../context/AuthContext";
 import {
-    Home, Users, Calendar, DollarSign, FileText, Settings, LogOut, Briefcase, MapPin, User, MessageCircle, UserPlus, BarChart2
+    Home, Users, Calendar, DollarSign, FileText, Settings, LogOut, Briefcase, MapPin, User, MessageCircle, UserPlus, BarChart2, Palette
 } from "lucide-react";
 import clsx from "clsx";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,6 +21,8 @@ const Sidebar = ({ open, setOpen, user, orgName = "BigwigESS", orgLogo }) => {
         { name: "Documents", path: "http://localhost:8080", icon: FileText, external: true },
         { name: "Chat", path: "/chat", icon: MessageCircle },
         { name: "Holidays", path: "/holidays", icon: Calendar },
+        { name: "My Roster", path: "/my-roster", icon: Calendar },
+        { name: "My Salary Slips", path: "/salary-slips", icon: DollarSign },
     ];
 
     if (user?.role === 'ADMIN' || user?.LegacyRole === 'ADMIN' || user?.role?.name === 'Admin' || user?.role?.type === 'ADMINISTRATOR' || user?.isOwner) {
@@ -34,11 +37,25 @@ const Sidebar = ({ open, setOpen, user, orgName = "BigwigESS", orgLogo }) => {
         ['ADMINISTRATOR', 'LEADERSHIP'].includes(user?.role?.type) ||
         ['HR', 'ADMIN', 'MANAGER'].includes(user?.role?.name?.toUpperCase())
     );
+
+    // Salary visible only to HR, Admin, Director, Owner — NOT Manager
+    const isManager = user?.role?.name?.toUpperCase() === 'MANAGER' || user?.LegacyRole === 'MANAGER';
+    const canAccessSalary = !isManager && (
+        ['HR', 'ADMIN'].includes(user?.LegacyRole) ||
+        user?.isOwner ||
+        ['ADMINISTRATOR', 'LEADERSHIP'].includes(user?.role?.type) ||
+        ['HR', 'ADMIN', 'DIRECTOR', 'OWNER'].includes(user?.role?.name?.toUpperCase())
+    );
+
     if (canAccessTAS) {
         links.push({ name: "Recruitment", path: "/talent", icon: Briefcase });
         links.push({ name: "Candidates", path: "/talent/candidates", icon: Users });
-        links.push({ name: "Salary Structure", path: "/salary", icon: DollarSign });
+        links.push({ name: "Roster Management", path: "/roster", icon: Calendar });
         links.push({ name: "Reports", path: "/reports", icon: BarChart2 });
+    }
+    if (canAccessSalary) {
+        links.push({ name: "Salary Structure", path: "/salary", icon: DollarSign });
+        links.push({ name: "Branding", path: "/branding", icon: Palette });
     }
 
     const sidebarVariants = {
@@ -73,12 +90,13 @@ const Sidebar = ({ open, setOpen, user, orgName = "BigwigESS", orgLogo }) => {
                 <div className="p-6 flex flex-col items-center justify-center border-b border-white/5 gap-3">
                     {orgLogo && (
                         <img
-                            src={`http://localhost:3434${orgLogo}?t=${new Date().getTime()}`}
+                            src={orgLogo}
                             alt="Org Logo"
                             className="w-16 h-16 object-contain rounded-lg bg-white/5 p-1"
                         />
                     )}
-                    <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-violet-500 text-center break-words w-full">
+                    <h1 className="text-xl font-bold bg-clip-text text-transparent text-center break-words w-full"
+                        style={{ backgroundImage: 'linear-gradient(to right, var(--color-accent), var(--color-primary))' }}>
                         {orgName}
                     </h1>
                 </div>
@@ -97,7 +115,7 @@ const Sidebar = ({ open, setOpen, user, orgName = "BigwigESS", orgLogo }) => {
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative overflow-hidden text-gray-400 hover:text-white hover:bg-white/5"
                                 >
-                                    <Icon className="w-5 h-5 group-hover:text-pink-300" />
+                                    <Icon className="w-5 h-5 transition-colors" style={{ color: 'var(--text-secondary)' }} />
                                     <span className="font-medium relative z-10">{link.name}</span>
                                 </a>
                             );
@@ -111,9 +129,10 @@ const Sidebar = ({ open, setOpen, user, orgName = "BigwigESS", orgLogo }) => {
                                 className={clsx(
                                     "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative overflow-hidden",
                                     isActive
-                                        ? "bg-white/10 text-white shadow-lg shadow-purple-500/10 border border-white/10"
+                                        ? "bg-white/10 text-white border border-white/10 shadow-lg"
                                         : "text-gray-400 hover:text-white hover:bg-white/5"
                                 )}
+                                style={isActive ? { boxShadow: '0 4px 20px -5px rgba(var(--color-primary-rgb), 0.3)' } : {}}
                             >
                                 {isActive && (
                                     <motion.div
@@ -121,7 +140,9 @@ const Sidebar = ({ open, setOpen, user, orgName = "BigwigESS", orgLogo }) => {
                                         className="absolute inset-0 bg-white/5 rounded-xl"
                                     />
                                 )}
-                                <Icon className={clsx("w-5 h-5", isActive ? "text-pink-400" : "group-hover:text-pink-300")} />
+                                <Icon className={clsx("w-5 h-5 transition-colors")}
+                                    style={{ color: isActive ? 'var(--color-accent)' : 'var(--text-secondary)' }}
+                                />
                                 <span className="font-medium relative z-10">{link.name}</span>
                             </Link>
                         );

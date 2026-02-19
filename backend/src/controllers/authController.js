@@ -20,7 +20,7 @@ exports.register = async (req, res) => {
             return res.status(400).json({ message: 'User already exists' });
         }
 
-        const hashedPassword = await bcrypt.hash(password, salt);
+        const hashedPassword = await bcrypt.hash(password, 12);
 
         // Fetch Default Organization (Bigwig)
         const org = await prisma.organization.findFirst({ where: { name: { contains: 'Bigwig' } } });
@@ -76,8 +76,16 @@ exports.login = async (req, res) => {
                 organization: true
             }
         });
+        if (!user) {
+            return res.status(401).json({ message: 'Invalid email or password' });
+        }
 
-        if (user && (await bcrypt.compare(password, user.password))) {
+        // Block off-boarded users
+        if (user.isActive === false) {
+            return res.status(403).json({ message: 'Your account has been deactivated. Please contact HR.' });
+        }
+
+        if (await bcrypt.compare(password, user.password)) {
             const requestedRole = req.body.role;
             let isAuthorized = false;
             const isOwner = user.organization && user.organization.ownerId === user.id;
@@ -117,10 +125,6 @@ exports.login = async (req, res) => {
                 isOwner,
                 profilePictureUrl: user.profilePictureUrl,
                 token: generateToken(user.id),
-                statusMessage: user.statusMessage,
-                workLocation: user.workLocation,
-                shiftStart: user.shiftStart,
-                shiftEnd: user.shiftEnd,
             });
         } else {
             res.status(401).json({ message: 'Invalid email or password' });
@@ -153,10 +157,6 @@ exports.getMe = async (req, res) => {
                 designation: user.designation,
                 department: user.department?.name,
                 profilePictureUrl: user.profilePictureUrl,
-                statusMessage: user.statusMessage,
-                workLocation: user.workLocation,
-                shiftStart: user.shiftStart,
-                shiftEnd: user.shiftEnd
             });
         } else {
             res.status(404).json({ message: 'User not found' });

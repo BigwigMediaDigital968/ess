@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { API_BASE_URL } from "../utils/config";
 import { motion } from "framer-motion";
 import QRCode from "react-qr-code";
 import { Download, Repeat, MapPin, Globe, Droplet, User as UserIcon, Building2 } from "lucide-react";
@@ -84,7 +85,7 @@ const VirtualIDCard = ({ user, organization }) => {
                         {/* Header / Logo */}
                         <div className="absolute top-0 w-full h-36 bg-gradient-to-b from-purple-900/90 to-transparent flex flex-col items-center justify-start pt-6 z-10 px-4">
                             {organization?.logoUrl ? (
-                                <img src={`http://localhost:3434${organization.logoUrl}`} alt="Logo" className="h-12 object-contain mb-2" />
+                                <img src={`${API_BASE_URL}${organization.logoUrl}`} alt="Logo" className="h-12 object-contain mb-2" />
                             ) : (
                                 <h2 className="text-2xl font-black text-white tracking-widest uppercase mb-1 text-center">BIGWIG</h2>
                             )}
@@ -96,7 +97,7 @@ const VirtualIDCard = ({ user, organization }) => {
                             <div className="relative">
                                 <div className="w-32 h-32 rounded-full border-4 border-purple-500/30 p-1 bg-black/60 backdrop-blur-md shadow-lg shadow-purple-500/20">
                                     <img
-                                        src={user.profilePictureUrl ? `http://localhost:3434${user.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${user.name}&background=random`}
+                                        src={user.profilePictureUrl ? `${API_BASE_URL}${user.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${user.name}&background=random`}
                                         alt={user.name}
                                         className="w-full h-full rounded-full object-cover"
                                     />

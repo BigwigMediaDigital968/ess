@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { API_BASE_URL } from "../utils/config";
 import { useAuth } from "../context/AuthContext";
 import { Card } from "../components/ui/Card";
 import { Search, Mail, Phone, MapPin, X, Network, Grid, User, ChevronDown, ChevronRight } from "lucide-react";
@@ -17,7 +18,7 @@ const OrgNode = ({ node, depth = 0 }) => {
             >
                 <div className="relative">
                     <img
-                        src={node.profilePictureUrl ? `http://localhost:3434${node.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${node.name}&background=random`}
+                        src={node.profilePictureUrl ? `${API_BASE_URL}${node.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${node.name}&background=random`}
                         alt={node.name}
                         className="w-12 h-12 rounded-full border-2 border-purple-400 mb-2"
                     />
@@ -112,7 +113,7 @@ const Directory = () => {
             <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
                     {orgData?.logoUrl && (
-                        <img src={`http://localhost:3434${orgData.logoUrl}`} alt="Logo" className="h-10 w-10 object-contain rounded-lg bg-white/5 p-1" />
+                        <img src={`${API_BASE_URL}${orgData.logoUrl}`} alt="Logo" className="h-10 w-10 object-contain rounded-lg bg-white/5 p-1" />
                     )}
                     <h2 className="text-3xl font-bold text-white">Employee Directory</h2>
                 </div>
@@ -157,7 +158,7 @@ const Directory = () => {
                         >
                             <Card className="flex flex-col items-center text-center p-6 hover:bg-white/10 transition-colors">
                                 <img
-                                    src={emp.profilePictureUrl ? `http://localhost:3434${emp.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${emp.name}&background=random`}
+                                    src={emp.profilePictureUrl ? `${API_BASE_URL}${emp.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${emp.name}&background=random`}
                                     alt={emp.name}
                                     className="w-20 h-20 rounded-full mb-4 border-2 border-purple-500/50"
                                 />
@@ -203,10 +204,10 @@ const Directory = () => {
 
                                 <div className="flex flex-col items-center mb-6 relative">
                                     {orgData?.logoUrl && (
-                                        <img src={`http://localhost:3434${orgData.logoUrl}`} alt="Logo" className="absolute top-0 right-0 h-8 w-8 object-contain opacity-40" />
+                                        <img src={`${API_BASE_URL}${orgData.logoUrl}`} alt="Logo" className="absolute top-0 right-0 h-8 w-8 object-contain opacity-40" />
                                     )}
                                     <img
-                                        src={selectedEmp.profilePictureUrl ? `http://localhost:3434${selectedEmp.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${selectedEmp.name}&background=random`}
+                                        src={selectedEmp.profilePictureUrl ? `${API_BASE_URL}${selectedEmp.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${selectedEmp.name}&background=random`}
                                         alt={selectedEmp.name}
                                         className="w-32 h-32 rounded-full mb-4 border-4 border-purple-500/50 shadow-lg shadow-purple-500/20"
                                     />

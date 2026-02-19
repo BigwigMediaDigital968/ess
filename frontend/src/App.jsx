@@ -19,39 +19,50 @@ import TakeAssessment from "./pages/TakeAssessment";
 import Profile from "./pages/Profile";
 import Chat from "./pages/Chat";
 import Onboarding from "./pages/Onboarding";
+import RosterManagement from "./pages/RosterManagement";
+import MyRoster from "./pages/MyRoster";
+import MySalarySlips from "./pages/MySalarySlips";
+import BrandingSettings from "./pages/BrandingSettings";
 import { AuthProvider } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
 
 function App() {
   return (
-    <AuthProvider>
-      <Routes>
-        <Route path="/login" element={<Login />} />
+    <ThemeProvider>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
 
-        <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/attendance" element={<Attendance />} />
-          <Route path="/directory" element={<Directory />} />
-          <Route path="/leaves" element={<Leaves />} />
-          <Route path="/salary" element={<SalaryManagement />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/appraisal" element={<Appraisal />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/holidays" element={<Holidays />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/chat" element={<Chat />} />
-          <Route path="/onboarding" element={<Onboarding />} />
+          <Route element={<Layout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/attendance" element={<Attendance />} />
+            <Route path="/directory" element={<Directory />} />
+            <Route path="/leaves" element={<Leaves />} />
+            <Route path="/salary" element={<SalaryManagement />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/appraisal" element={<Appraisal />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/holidays" element={<Holidays />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/chat" element={<Chat />} />
+            <Route path="/onboarding" element={<Onboarding />} />
 
-          {/* TAS Routes */}
-          <Route path="/talent" element={<TASDashboard />} />
-          <Route path="/talent/create-job" element={<JobCreate />} />
-          <Route path="/talent/job/:id" element={<JobDetails />} />
-          <Route path="/talent/assessment/:id" element={<TakeAssessment />} />
-          <Route path="/talent/candidates" element={<CandidateDatabase />} />
+            {/* TAS Routes */}
+            <Route path="/talent" element={<TASDashboard />} />
+            <Route path="/talent/create-job" element={<JobCreate />} />
+            <Route path="/talent/job/:id" element={<JobDetails />} />
+            <Route path="/talent/assessment/:id" element={<TakeAssessment />} />
+            <Route path="/talent/candidates" element={<CandidateDatabase />} />
+            <Route path="/roster" element={<RosterManagement />} />
+            <Route path="/my-roster" element={<MyRoster />} />
+            <Route path="/salary-slips" element={<MySalarySlips />} />
+            <Route path="/branding" element={<BrandingSettings />} />
 
-          <Route path="/documents" element={<div className="text-white p-4">Documents Module Mock</div>} />
-        </Route>
-      </Routes>
-    </AuthProvider>
+            <Route path="/documents" element={<div className="text-white p-4">Documents Module Mock</div>} />
+          </Route>
+        </Routes>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

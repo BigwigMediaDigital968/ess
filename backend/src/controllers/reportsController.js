@@ -261,3 +261,215 @@ exports.getAttendanceReport = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// ─── TEAM ATTENDANCE REPORT (Manager's subordinates only) ────────────────────
+
+exports.getTeamAttendanceReport = async (req, res) => {
+    try {
+        const { month, year } = req.query;
+        const managerId = req.user.id;
+        const now = new Date();
+        const targetMonth = parseInt(month) || (now.getMonth() + 1);
+        const targetYear = parseInt(year) || now.getFullYear();
+
+        const startDate = new Date(targetYear, targetMonth - 1, 1);
+        const endDate = new Date(targetYear, targetMonth, 0, 23, 59, 59);
+
+        // Get subordinates
+        const subordinates = await prisma.user.findMany({
+            where: { managerId, isActive: true },
+            select: { id: true, name: true, designation: true, department: { select: { name: true } } }
+        });
+        const subIds = subordinates.map(s => s.id);
+
+        if (subIds.length === 0) {
+            return res.json({ subordinates: [], summary: {}, records: [] });
+        }
+
+        const records = await prisma.attendance.findMany({
+            where: { userId: { in: subIds }, date: { gte: startDate, lte: endDate } },
+            orderBy: { date: 'asc' }
+        });
+
+        // Per-employee summary
+        const empMap = {};
+        subordinates.forEach(s => {
+            empMap[s.id] = { name: s.name, designation: s.designation, dept: s.department?.name, present: 0, late: 0, absent: 0, halfDay: 0, total: 0 };
+        });
+        records.forEach(r => {
+            if (!empMap[r.userId]) return;
+            empMap[r.userId].total++;
+            const s = r.status?.toUpperCase();
+            if (s === 'PRESENT') empMap[r.userId].present++;
+            else if (s === 'LATE') empMap[r.userId].late++;
+            else if (s === 'ABSENT') empMap[r.userId].absent++;
+            else if (s === 'HALF_DAY') empMap[r.userId].halfDay++;
+        });
+
+        const workingDays = new Set(records.map(r => r.date.toISOString().split('T')[0])).size || 1;
+
+        res.json({
+            period: { month: targetMonth, year: targetYear },
+            summary: { totalSubordinates: subIds.length, workingDays, totalRecords: records.length },
+            employees: Object.values(empMap).map(e => ({
+                ...e,
+                attendancePct: workingDays > 0 ? Math.round(((e.present + e.late) / workingDays) * 100) : 0
+            }))
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ─── INDIVIDUAL EMPLOYEE REPORT ──────────────────────────────────────────────
+
+exports.getIndividualReport = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { month, year } = req.query;
+        const now = new Date();
+        const targetMonth = parseInt(month) || (now.getMonth() + 1);
+        const targetYear = parseInt(year) || now.getFullYear();
+
+        const startDate = new Date(targetYear, targetMonth - 1, 1);
+        const endDate = new Date(targetYear, targetMonth, 0, 23, 59, 59);
+
+        const employee = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, name: true, designation: true, department: { select: { name: true } } }
+        });
+        if (!employee) return res.status(404).json({ message: 'Employee not found' });
+
+        const records = await prisma.attendance.findMany({
+            where: { userId, date: { gte: startDate, lte: endDate } },
+            orderBy: { date: 'asc' }
+        });
+
+        // Roster for this period
+        const rosters = await prisma.roster.findMany({
+            where: { userId, date: { gte: startDate, lte: endDate } },
+            include: { shift: true },
+            orderBy: { date: 'asc' }
+        });
+
+        // Leaves in period
+        const leaves = await prisma.leave.findMany({
+            where: {
+                userId,
+                OR: [
+                    { startDate: { gte: startDate, lte: endDate } },
+                    { endDate: { gte: startDate, lte: endDate } }
+                ]
+            }
+        });
+
+        // Daily breakdown
+        const dailyMap = {};
+        records.forEach(r => {
+            const d = r.date.toISOString().split('T')[0];
+            dailyMap[d] = {
+                status: r.status,
+                clockIn: r.clockIn,
+                clockOut: r.clockOut,
+                type: r.type
+            };
+        });
+
+        // Status counts
+        const counts = { present: 0, late: 0, absent: 0, halfDay: 0, totalDays: records.length };
+        records.forEach(r => {
+            const s = r.status?.toUpperCase();
+            if (s === 'PRESENT') counts.present++;
+            else if (s === 'LATE') counts.late++;
+            else if (s === 'ABSENT') counts.absent++;
+            else if (s === 'HALF_DAY') counts.halfDay++;
+        });
+
+        res.json({
+            employee,
+            period: { month: targetMonth, year: targetYear },
+            counts,
+            dailyBreakdown: dailyMap,
+            rosters: rosters.map(r => ({ date: r.date, shift: r.shift })),
+            leaves: leaves.map(l => ({ type: l.type, startDate: l.startDate, endDate: l.endDate, status: l.status }))
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ─── MONTHLY SUMMARY (Org-wide, with team aggregation) ──────────────────────
+
+exports.getMonthlySummary = async (req, res) => {
+    try {
+        const { year } = req.query;
+        const targetYear = parseInt(year) || new Date().getFullYear();
+
+        const monthlySummary = [];
+
+        for (let m = 1; m <= 12; m++) {
+            const startDate = new Date(targetYear, m - 1, 1);
+            const endDate = new Date(targetYear, m, 0, 23, 59, 59);
+
+            const records = await prisma.attendance.findMany({
+                where: { date: { gte: startDate, lte: endDate } },
+                select: { status: true, userId: true }
+            });
+
+            const uniqueEmployees = new Set(records.map(r => r.userId)).size;
+            let present = 0, late = 0, absent = 0;
+            records.forEach(r => {
+                const s = r.status?.toUpperCase();
+                if (s === 'PRESENT') present++;
+                else if (s === 'LATE') late++;
+                else if (s === 'ABSENT') absent++;
+            });
+
+            monthlySummary.push({
+                month: m,
+                monthName: new Date(targetYear, m - 1).toLocaleString('default', { month: 'short' }),
+                totalRecords: records.length,
+                uniqueEmployees,
+                present,
+                late,
+                absent,
+                attendanceRate: records.length > 0 ? Math.round(((present + late) / records.length) * 100) : 0
+            });
+        }
+
+        // Department-wise annual summary
+        const yearStart = new Date(targetYear, 0, 1);
+        const yearEnd = new Date(targetYear, 11, 31, 23, 59, 59);
+        const allRecords = await prisma.attendance.findMany({
+            where: { date: { gte: yearStart, lte: yearEnd } },
+            include: { user: { select: { department: { select: { name: true } } } } }
+        });
+
+        const deptSummary = {};
+        allRecords.forEach(r => {
+            const dept = r.user?.department?.name || 'Unassigned';
+            if (!deptSummary[dept]) deptSummary[dept] = { present: 0, late: 0, total: 0 };
+            deptSummary[dept].total++;
+            const s = r.status?.toUpperCase();
+            if (s === 'PRESENT') deptSummary[dept].present++;
+            else if (s === 'LATE') deptSummary[dept].late++;
+        });
+
+        res.json({
+            year: targetYear,
+            monthlySummary,
+            departmentSummary: Object.entries(deptSummary).map(([dept, d]) => ({
+                department: dept,
+                totalRecords: d.total,
+                present: d.present,
+                late: d.late,
+                rate: d.total > 0 ? Math.round(((d.present + d.late) / d.total) * 100) : 0
+            }))
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: error.message });
+    }
+};

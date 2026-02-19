@@ -32,6 +32,19 @@ const upload = multer({
     },
 }).single('logo');
 
+const loginBgUpload = multer({
+    storage: multer.diskStorage({
+        destination(req, file, cb) {
+            const uploadPath = 'uploads/backgrounds';
+            if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
+            cb(null, uploadPath);
+        },
+        filename(req, file, cb) {
+            cb(null, `bg-${Date.now()}${path.extname(file.originalname)}`);
+        },
+    }),
+}).single('loginBackground');
+
 
 exports.getOrganization = async (req, res) => {
     try {
@@ -47,9 +60,12 @@ exports.getOrganization = async (req, res) => {
 
 exports.getPublicOrganization = async (req, res) => {
     try {
-        // Assuming single tenant for this scope, get the first organization
         const org = await prisma.organization.findFirst({
-            select: { name: true, logoUrl: true }
+            select: {
+                name: true, logoUrl: true,
+                primaryColor: true, accentColor: true,
+                themeMode: true, loginBgUrl: true, loginBgType: true
+            }
         });
         res.json(org || {});
     } catch (error) {
@@ -86,6 +102,13 @@ exports.updateOrganization = async (req, res) => {
             if (req.file) {
                 updateData.logoUrl = `/uploads/logos/${req.file.filename}`;
             }
+
+            // Branding fields
+            const { primaryColor, accentColor, themeMode, loginBgType } = req.body;
+            if (primaryColor) updateData.primaryColor = primaryColor;
+            if (accentColor) updateData.accentColor = accentColor;
+            if (themeMode && ['light', 'dark', 'system'].includes(themeMode)) updateData.themeMode = themeMode;
+            if (loginBgType && ['gradient', 'image', 'video'].includes(loginBgType)) updateData.loginBgType = loginBgType;
 
             const organizationId = req.user.organizationId;
             if (!organizationId) {
@@ -149,3 +172,27 @@ exports.updateOrganization = async (req, res) => {
         }
     });
 };
+
+// Upload login background (separate endpoint)
+exports.uploadLoginBackground = async (req, res) => {
+    loginBgUpload(req, res, async function (err) {
+        if (err) return res.status(400).json({ message: err });
+        try {
+            const organizationId = req.user.organizationId;
+            if (!organizationId) return res.status(400).json({ message: 'No organization' });
+
+            if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+
+            const org = await prisma.organization.update({
+                where: { id: organizationId },
+                data: { loginBgUrl: `/uploads/backgrounds/${req.file.filename}` }
+            });
+            res.json(org);
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ message: 'Server error' });
+        }
+    });
+};
+
+exports.loginBgUpload = loginBgUpload;
