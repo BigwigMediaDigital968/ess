@@ -47,6 +47,8 @@ const corsOptions = {
             'https://135.181.104.191',
             'https://ess.bigwigmediadigital.com',
             'http://ess.bigwigmediadigital.com',
+            'https://ess.bigwigmediadigital.com:5173',
+            'http://ess.bigwigmediadigital.com:5173',
         ].filter(Boolean);
 
         // Allow same-origin and non-browser requests
