@@ -85,11 +85,14 @@ const VirtualIDCard = ({ user, organization }) => {
                         {/* Header / Logo */}
                         <div className="absolute top-0 w-full h-36 bg-gradient-to-b from-purple-900/90 to-transparent flex flex-col items-center justify-start pt-6 z-10 px-4">
                             {organization?.logoUrl ? (
-                                <img src={`${API_BASE_URL}${organization.logoUrl}`} alt="Logo" className="h-12 object-contain mb-2" />
-                            ) : (
-                                <h2 className="text-2xl font-black text-white tracking-widest uppercase mb-1 text-center">BIGWIG</h2>
-                            )}
-                            <span className="text-[10px] text-purple-200 tracking-widest uppercase opacity-80 text-center leading-tight">{organization?.name || "Digital Marketing"}</span>
+                                <img
+                                    src={`${API_BASE_URL}${organization.logoUrl.startsWith('/') ? '' : '/'}${organization.logoUrl}`}
+                                    alt=""
+                                    className="h-12 object-contain mb-2"
+                                    onError={e => { e.target.style.display = 'none'; }}
+                                />
+                            ) : null}
+                            <span className="text-[10px] text-purple-200 tracking-widest uppercase opacity-80 text-center leading-tight">{organization?.name || "Binary Semantics Limited"}</span>
                         </div>
 
                         {/* Profile Picture */}
@@ -110,7 +113,7 @@ const VirtualIDCard = ({ user, organization }) => {
                         <div className="absolute top-64 w-full text-center px-4 z-10 mt-2">
                             <h1 className="text-2xl font-bold text-white mb-1 truncate drop-shadow-md">{user.name}</h1>
                             <div className="inline-block px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 mb-4">
-                                <p className="text-purple-300 font-semibold text-xs uppercase tracking-wider">{user.designation || "Employee"}</p>
+                                <p className="text-purple-300 font-semibold text-xs uppercase tracking-wider">{user.designation || user.role?.name || "Staff"}</p>
                             </div>
 
                             <div className="flex justify-center gap-2 mb-6 opacity-80">
@@ -167,15 +170,48 @@ const VirtualIDCard = ({ user, organization }) => {
                                     <div className="p-2 rounded-lg bg-purple-500/20 text-purple-400"><Building2 size={20} /></div>
                                     <div>
                                         <p className="text-xs text-gray-400 uppercase tracking-wide">Office Address</p>
-                                        <p className="text-sm text-gray-300 leading-snug">{organization?.address || "Bigwig Media, Delhi"}</p>
+                                        <p className="text-sm text-gray-300 leading-snug">{organization?.address || "Plot #38, Sector 18, Udyog Vihar, Gurugram, Haryana"}</p>
                                     </div>
                                 </div>
                             </div>
 
+                            {/* Certifications */}
+                            {user.certifications && user.certifications.length > 0 && (
+                                <div className="pt-4 border-t border-white/10">
+                                    <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2 font-semibold">Certifications</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {user.certifications.slice(0, 6).map((cert, i) => (
+                                            <div
+                                                key={cert.id || i}
+                                                className="flex items-center gap-1 bg-purple-500/10 border border-purple-400/20 px-2 py-1 rounded-full"
+                                                title={cert.name}
+                                            >
+                                                {cert.imageUrl ? (
+                                                    <img
+                                                        src={`${API_BASE_URL}${cert.imageUrl}`}
+                                                        alt={cert.name}
+                                                        className="w-4 h-4 rounded-full object-contain"
+                                                        onError={e => { e.target.style.display = 'none'; }}
+                                                    />
+                                                ) : (
+                                                    <span className="text-yellow-400 text-[10px]">🏅</span>
+                                                )}
+                                                <span className="text-[9px] text-purple-200 font-medium truncate max-w-[70px]">{cert.name}</span>
+                                            </div>
+                                        ))}
+                                        {user.certifications.length > 6 && (
+                                            <div className="flex items-center px-2 py-1 bg-white/5 border border-white/10 rounded-full">
+                                                <span className="text-[9px] text-gray-400">+{user.certifications.length - 6} more</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="pt-4 border-t border-white/10 text-center">
                                 <div className="flex items-center justify-center gap-2 text-purple-300 mb-1">
                                     <Globe size={14} />
-                                    <span className="text-xs font-medium tracking-wide">{organization?.website || "www.bigwigmedia.in"}</span>
+                                    <span className="text-xs font-medium tracking-wide">{organization?.website || "www.binarysemantics.com"}</span>
                                 </div>
                                 <p className="text-[10px] text-gray-500">If found, please return to the office address above.</p>
                             </div>

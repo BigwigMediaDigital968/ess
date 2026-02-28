@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { Card } from "../components/ui/Card";
-import { MapPin, Clock, Home, CheckCircle, XCircle } from "lucide-react";
+import { MapPin, Clock, Home, CheckCircle, XCircle, LogOut, Timer } from "lucide-react";
 import { motion } from "framer-motion";
 
 const Attendance = () => {
@@ -12,6 +12,7 @@ const Attendance = () => {
     const [loading, setLoading] = useState(false);
     const [wfhAddress, setWfhAddress] = useState("");
     const [activeTab, setActiveTab] = useState("mark");
+    const [clockOutLoading, setClockOutLoading] = useState(false);
 
     useEffect(() => {
         fetchAttendance();
@@ -23,6 +24,34 @@ const Attendance = () => {
             setAttendance(data);
         } catch (err) {
             console.error(err);
+        }
+    };
+
+    // Derive today's attendance record
+    const todayRecord = attendance.find(
+        (r) => new Date(r.date).toDateString() === new Date().toDateString()
+    );
+    const isClockedIn = !!todayRecord && !todayRecord.clockOut;
+    const isClockedOut = !!todayRecord && !!todayRecord.clockOut;
+
+    const formatDuration = (start, end) => {
+        const diffMs = new Date(end) - new Date(start);
+        const totalMins = Math.floor(diffMs / 60000);
+        const hrs = Math.floor(totalMins / 60);
+        const mins = totalMins % 60;
+        return `${hrs}h ${mins}m`;
+    };
+
+    const handleClockOut = async () => {
+        try {
+            setClockOutLoading(true);
+            setError("");
+            await api.put("/attendance/clockout");
+            fetchAttendance();
+        } catch (err) {
+            setError(err.response?.data?.message || "Failed to clock out");
+        } finally {
+            setClockOutLoading(false);
         }
     };
 
@@ -130,29 +159,78 @@ const Attendance = () => {
                         <div className="flex gap-4 w-full px-8">
                             <button
                                 onClick={() => handleClockIn("OFFICE")}
-                                disabled={!location || loading}
+                                disabled={!location || loading || isClockedIn || isClockedOut}
                                 className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl font-bold text-white shadow-lg disabled:opacity-50"
                             >
                                 Office Check-In
                             </button>
                             <button
                                 onClick={() => handleClockIn("WFH")}
-                                disabled={!location || loading}
+                                disabled={!location || loading || isClockedIn || isClockedOut}
                                 className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl font-bold text-white shadow-lg disabled:opacity-50"
                             >
                                 WFH Check-In
                             </button>
                         </div>
+
+                        {isClockedIn && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="w-full px-8"
+                            >
+                                <button
+                                    onClick={handleClockOut}
+                                    disabled={clockOutLoading}
+                                    className="w-full py-3 bg-gradient-to-r from-red-500 to-rose-600 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 hover:opacity-90 transition-opacity"
+                                >
+                                    <LogOut className="w-5 h-5" />
+                                    {clockOutLoading ? "Clocking Out..." : "Clock Out"}
+                                </button>
+                            </motion.div>
+                        )}
                     </Card>
 
                     <Card>
                         <h3 className="text-xl font-bold text-white mb-4">Today's Status</h3>
-                        {attendance.length > 0 && new Date(attendance[0].date).toDateString() === new Date().toDateString() ? (
+                        {todayRecord ? (
                             <div className="space-y-4">
                                 <div className="flex items-center gap-3 text-green-400">
-                                    <CheckCircle /> <span>Checked In at {new Date(attendance[0].clockIn).toLocaleTimeString()}</span>
+                                    <CheckCircle />
+                                    <div>
+                                        <p className="font-medium">Clocked In</p>
+                                        <p className="text-sm text-gray-400">{new Date(todayRecord.clockIn).toLocaleTimeString()}</p>
+                                    </div>
                                 </div>
-                                <p className="text-gray-400 text-sm pl-9">Location: {attendance[0].type}</p>
+
+                                {isClockedOut ? (
+                                    <>
+                                        <div className="flex items-center gap-3 text-red-400">
+                                            <LogOut />
+                                            <div>
+                                                <p className="font-medium">Clocked Out</p>
+                                                <p className="text-sm text-gray-400">{new Date(todayRecord.clockOut).toLocaleTimeString()}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-purple-400">
+                                            <Timer />
+                                            <div>
+                                                <p className="font-medium">Duration</p>
+                                                <p className="text-sm text-gray-400">{formatDuration(todayRecord.clockIn, todayRecord.clockOut)}</p>
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="flex items-center gap-3 text-yellow-400 animate-pulse">
+                                        <Clock />
+                                        <p className="font-medium">Currently Working...</p>
+                                    </div>
+                                )}
+
+                                <p className="text-gray-400 text-sm pl-9">Type: <span className="px-2 py-0.5 rounded bg-white/10 text-xs">{todayRecord.type}</span></p>
+                                {todayRecord.status && (
+                                    <p className="text-gray-400 text-sm pl-9">Status: <span className={`px-2 py-0.5 rounded text-xs ${todayRecord.status === 'LATE' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400'}`}>{todayRecord.status}</span></p>
+                                )}
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center h-40 text-gray-500">

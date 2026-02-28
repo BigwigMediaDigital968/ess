@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { API_BASE_URL } from "../utils/config";
 import { useAuth } from "../context/AuthContext";
 import { Card } from "../components/ui/Card";
-import { Search, Mail, Phone, MapPin, X, Network, Grid, User, ChevronDown, ChevronRight } from "lucide-react";
+import { Search, Mail, Phone, MapPin, X, Network, Grid, User, ChevronDown, ChevronRight, Award } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Briefcase, Users } from "lucide-react";
 
@@ -151,20 +151,79 @@ const Directory = () => {
                     {filtered.map((emp) => (
                         <motion.div
                             key={emp.id}
-                            whileHover={{ scale: 1.05 }}
+                            whileHover={{ scale: 1.03 }}
                             layoutId={`card-${emp.id}`}
                             onClick={() => setSelectedEmp(emp)}
                             className="cursor-pointer"
                         >
-                            <Card className="flex flex-col items-center text-center p-6 hover:bg-white/10 transition-colors">
-                                <img
-                                    src={emp.profilePictureUrl ? `${API_BASE_URL}${emp.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${emp.name}&background=random`}
-                                    alt={emp.name}
-                                    className="w-20 h-20 rounded-full mb-4 border-2 border-purple-500/50"
-                                />
-                                <h3 className="text-lg font-bold text-white">{emp.name}</h3>
-                                <p className="text-purple-300 text-sm">{emp.designation || 'Employee'}</p>
-                                <p className="text-gray-500 text-xs mt-1">{emp.department?.name || 'No Dept'}</p>
+                            <Card className="flex flex-col items-center text-center p-6 hover:bg-white/10 transition-colors relative overflow-hidden">
+                                {/* Glowing cert accent if employee has badges */}
+                                {emp.certifications && emp.certifications.length > 0 && (
+                                    <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-yellow-400/0 via-yellow-400/60 to-yellow-400/0" />
+                                )}
+
+                                <div className="relative mb-4">
+                                    <img
+                                        src={emp.profilePictureUrl ? `${API_BASE_URL}${emp.profilePictureUrl}` : `https://ui-avatars.com/api/?name=${emp.name}&background=random`}
+                                        alt={emp.name}
+                                        className="w-20 h-20 rounded-full border-2 border-purple-500/50"
+                                    />
+                                    {/* Count badge */}
+                                    {emp.certifications && emp.certifications.length > 0 && (
+                                        <div
+                                            className="absolute -bottom-1 -right-1 bg-yellow-500 text-black text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#111] shadow-lg"
+                                            title={`${emp.certifications.length} Certifications`}
+                                        >
+                                            {emp.certifications.length}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <h3 className="text-base font-bold text-white leading-tight">{emp.name}</h3>
+                                <p className="text-purple-300 text-xs mt-0.5">{emp.designation || 'Employee'}</p>
+                                <p className="text-gray-500 text-[11px] mt-0.5">{emp.department?.name || 'No Dept'}</p>
+
+                                {/* Certification Badge Images */}
+                                {emp.certifications && emp.certifications.length > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-white/10 w-full">
+                                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                            {emp.certifications.slice(0, 3).map((cert, i) => (
+                                                <div
+                                                    key={cert.id || i}
+                                                    title={cert.name}
+                                                    className="relative group/badge"
+                                                >
+                                                    {cert.imageUrl ? (
+                                                        <img
+                                                            src={`${API_BASE_URL}${cert.imageUrl}`}
+                                                            alt={cert.name}
+                                                            className="w-9 h-9 rounded-full object-contain border-2 border-yellow-400/40 bg-white/5 p-0.5 shadow-md hover:scale-110 transition-transform"
+                                                            onError={e => {
+                                                                e.target.style.display = 'none';
+                                                                e.target.nextSibling.style.display = 'flex';
+                                                            }}
+                                                        />
+                                                    ) : null}
+                                                    <div
+                                                        className={`w-9 h-9 rounded-full bg-yellow-500/10 border-2 border-yellow-400/30 items-center justify-center text-yellow-400 ${cert.imageUrl ? 'hidden' : 'flex'}`}
+                                                        title={cert.name}
+                                                    >
+                                                        <Award size={18} />
+                                                    </div>
+                                                    {/* Tooltip */}
+                                                    <div className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover/badge:opacity-100 transition-opacity pointer-events-none z-10 border border-white/10 shadow-lg">
+                                                        {cert.name}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {emp.certifications.length > 3 && (
+                                                <div className="w-9 h-9 rounded-full bg-white/5 border-2 border-white/10 flex items-center justify-center text-gray-400 text-[10px] font-bold">
+                                                    +{emp.certifications.length - 3}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </Card>
                         </motion.div>
                     ))}
@@ -229,6 +288,25 @@ const Directory = () => {
                                         <span>Manager: {selectedEmp.manager?.name || 'None'}</span>
                                     </div>
                                 </div>
+                                {selectedEmp.certifications && selectedEmp.certifications.length > 0 && (
+                                    <div className="mt-6 pt-6 border-t border-white/10">
+                                        <h4 className="text-sm uppercase tracking-wider text-gray-400 font-bold mb-3 flex items-center gap-2">
+                                            <Award className="text-yellow-400 w-4 h-4" /> Certifications
+                                        </h4>
+                                        <div className="flex flex-wrap gap-2">
+                                            {selectedEmp.certifications.map(cert => (
+                                                <div key={cert.id} className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full border border-white/5" title={cert.name}>
+                                                    {cert.imageUrl ? (
+                                                        <img src={`${API_BASE_URL}${cert.imageUrl}`} alt={cert.name} className="w-5 h-5 object-contain" />
+                                                    ) : (
+                                                        <Award className="text-yellow-400 w-4 h-4" />
+                                                    )}
+                                                    <span className="text-sm font-medium text-white">{cert.name}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </motion.div>
                     </>

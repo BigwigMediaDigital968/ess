@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
-import { BarChart2, Users, Calendar, Briefcase, Download, RefreshCw, CheckCircle, XCircle, Clock } from "lucide-react";
+import { BarChart2, Users, Calendar, Briefcase, Download, RefreshCw, CheckCircle, XCircle, Clock, Headphones, Activity } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -41,6 +41,46 @@ const BarChart = ({ data, labelKey, valueKey, color = "bg-purple-500" }) => {
         </div>
     );
 };
+
+// ─── Donut chart ──────────────────────────────────────────────────────────────
+const DONUT_COLORS = ['#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#6366f1', '#84cc16'];
+const DonutChart = ({ data, labelKey, valueKey }) => {
+    const total = data.reduce((s, d) => s + (d[valueKey] || 0), 0) || 1;
+    let offset = 0;
+    const R = 60, CX = 70, CY = 70, CIRC = 2 * Math.PI * R;
+    const slices = data.map((d, i) => {
+        const pct = d[valueKey] / total;
+        const dash = pct * CIRC;
+        const slice = { ...d, dash, offset, color: DONUT_COLORS[i % DONUT_COLORS.length] };
+        offset += dash;
+        return slice;
+    });
+    return (
+        <div className="flex items-center gap-6 flex-wrap">
+            <svg width="140" height="140" viewBox="0 0 140 140">
+                {slices.map((s, i) => (
+                    <circle key={i} cx={CX} cy={CY} r={R}
+                        fill="none" stroke={s.color} strokeWidth="22"
+                        strokeDasharray={`${s.dash} ${CIRC - s.dash}`}
+                        strokeDashoffset={-s.offset}
+                        style={{ transform: 'rotate(-90deg)', transformOrigin: `${CX}px ${CY}px` }}
+                    />
+                ))}
+                <text x={CX} y={CY + 5} textAnchor="middle" fill="#fff" fontSize="14" fontWeight="bold">{total}</text>
+            </svg>
+            <div className="flex flex-col gap-1.5">
+                {slices.map((s, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full shrink-0" style={{ background: s.color }} />
+                        <span className="text-white/70 text-xs">{s[labelKey]}</span>
+                        <span className="text-white font-bold text-xs ml-auto pl-4">{s[valueKey]}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
 const StatCard = ({ label, value, icon: Icon, color = "text-purple-400", bg = "bg-purple-500/10" }) => (
@@ -100,6 +140,7 @@ const Reports = () => {
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState(null);
     const [downloading, setDownloading] = useState(false);
+    const [exportingServerPDF, setExportingServerPDF] = useState(false);
     const reportRef = useRef(null);
 
     const now = new Date();
@@ -232,10 +273,34 @@ const Reports = () => {
         }
     };
 
+    // ─── Server-side Branded PDF Export ───────────────────────────────────────
+    const exportServerPDF = async () => {
+        setExportingServerPDF(true);
+        try {
+            const params = activeTab === 'attendance'
+                ? `type=${activeTab}&month=${attMonth}&year=${attYear}`
+                : `type=${activeTab}&month=${attMonth}&year=${attYear}`;
+            const res = await api.get(`/reports/export-pdf?${params}`, { responseType: 'blob' });
+            const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${activeTab}-report-${MONTHS[attMonth - 1]}-${attYear}.pdf`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            console.error('Server PDF error', e);
+            alert('PDF export failed');
+        } finally {
+            setExportingServerPDF(false);
+        }
+    };
+
     const tabs = [
-        { id: 'recruitment', label: 'Recruitment', icon: Briefcase },
-        { id: 'ess', label: 'Employee', icon: Users },
-        { id: 'attendance', label: 'Attendance', icon: Calendar },
+        { id: 'recruitment', label: '🎯 Recruitment', icon: Briefcase },
+        { id: 'ess', label: '👥 Employee', icon: Users },
+        { id: 'attendance', label: '📅 Attendance', icon: Calendar },
+        { id: 'assets', label: '💻 Assets', icon: BarChart2 },
+        { id: 'leaves', label: '🌴 Leave', icon: CheckCircle },
     ];
 
     return (
@@ -253,10 +318,15 @@ const Reports = () => {
                         className="flex items-center gap-2 px-4 py-2 bg-white/10 text-white rounded-xl hover:bg-white/20 text-sm">
                         <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
                     </button>
+                    <button onClick={exportServerPDF} disabled={exportingServerPDF || loading}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                        <Download size={14} className={exportingServerPDF ? 'animate-bounce' : ''} />
+                        {exportingServerPDF ? 'Generating...' : 'Export PDF'}
+                    </button>
                     <button onClick={downloadPDF} disabled={downloading || loading || (!data && !multiData)}
                         className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-500 text-sm disabled:opacity-40 disabled:cursor-not-allowed">
                         <Download size={14} className={downloading ? 'animate-bounce' : ''} />
-                        {downloading ? 'Generating PDF...' : 'Download PDF'}
+                        {downloading ? 'Snapshot...' : 'Screenshot PDF'}
                     </button>
                 </div>
             </div>
@@ -272,7 +342,7 @@ const Reports = () => {
             </div>
 
             {/* Attendance period filters */}
-            {activeTab === 'attendance' && (
+            {(activeTab === 'attendance') && (
                 <div className="flex flex-wrap items-center gap-3 bg-white/5 border border-white/10 rounded-xl p-4">
                     <div className="flex gap-1 flex-wrap">
                         {PERIODS.map(p => (
@@ -309,7 +379,7 @@ const Reports = () => {
                                     className="bg-black/30 text-white text-sm p-2 rounded-lg border border-white/10 focus:border-purple-500 focus:outline-none w-24" />
                             </>
                         )}
-                        <button onClick={() => fetchReport('attendance')}
+                        <button onClick={() => fetchReport(activeTab)}
                             className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-500">
                             Apply
                         </button>
@@ -336,18 +406,18 @@ const Reports = () => {
                         <motion.div key="recruitment" className="space-y-5"
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <StatCard label="Total Jobs" value={data.summary.totalJobs} icon={Briefcase} color="text-purple-400" bg="bg-purple-500/10" />
-                                <StatCard label="Open Jobs" value={data.summary.openJobs} icon={BarChart2} color="text-green-400" bg="bg-green-500/10" />
-                                <StatCard label="Applications" value={data.summary.totalApplications} icon={Users} color="text-blue-400" bg="bg-blue-500/10" />
-                                <StatCard label="Hired" value={data.summary.hired} icon={CheckCircle} color="text-teal-400" bg="bg-teal-500/10" />
+                                <StatCard label="Total Jobs" value={data.summary?.totalJobs} icon={Briefcase} color="text-purple-400" bg="bg-purple-500/10" />
+                                <StatCard label="Open Jobs" value={data.summary?.openJobs} icon={BarChart2} color="text-green-400" bg="bg-green-500/10" />
+                                <StatCard label="Applications" value={data.summary?.totalApplications} icon={Users} color="text-blue-400" bg="bg-blue-500/10" />
+                                <StatCard label="Hired" value={data.summary?.hired} icon={CheckCircle} color="text-teal-400" bg="bg-teal-500/10" />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <Section title="📊 Application Pipeline">
-                                    {data.pipeline.length === 0 ? <p className="text-white/30 text-sm">No data</p> :
+                                    {(data.pipeline?.length ?? 0) === 0 ? <p className="text-white/30 text-sm">No data</p> :
                                         <BarChart data={data.pipeline} labelKey="status" valueKey="count" color="bg-purple-500" />}
                                 </Section>
                                 <Section title="🎁 Offer Status">
-                                    {data.offers.length === 0 ? <p className="text-white/30 text-sm">No offers yet</p> :
+                                    {(data.offers?.length ?? 0) === 0 ? <p className="text-white/30 text-sm">No offers yet</p> :
                                         <div className="space-y-3">{data.offers.map(o => (
                                             <div key={o.status} className="flex items-center justify-between">
                                                 <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[o.status] || 'bg-white/10 text-white/60'}`}>{o.status}</span>
@@ -356,23 +426,23 @@ const Reports = () => {
                                         ))}</div>}
                                 </Section>
                                 <Section title="📈 Monthly Applications Trend">
-                                    {data.monthlyTrend.length === 0 ? <p className="text-white/30 text-sm">No data</p> :
+                                    {(data.monthlyTrend?.length ?? 0) === 0 ? <p className="text-white/30 text-sm">No data</p> :
                                         <BarChart data={data.monthlyTrend} labelKey="month" valueKey="count" color="bg-indigo-500" />}
                                 </Section>
                                 <Section title="🤖 AI Score Distribution">
-                                    <BarChart data={data.aiScoreDistribution} labelKey="range" valueKey="count" color="bg-teal-500" />
+                                    <BarChart data={data.aiScoreDistribution ?? []} labelKey="range" valueKey="count" color="bg-teal-500" />
                                 </Section>
                                 <Section title="🏆 Top Jobs by Applications">
-                                    {data.appsPerJob.length === 0 ? <p className="text-white/30 text-sm">No data</p> :
+                                    {(data.appsPerJob?.length ?? 0) === 0 ? <p className="text-white/30 text-sm">No data</p> :
                                         <BarChart data={data.appsPerJob} labelKey="job" valueKey="count" color="bg-orange-500" />}
                                 </Section>
                                 <Section title="🎯 Conversion Summary">
                                     <div className="space-y-3">
                                         {[
-                                            { label: 'Hire Rate', value: data.summary.totalApplications > 0 ? `${Math.round(data.summary.hired / data.summary.totalApplications * 100)}%` : '0%', color: 'text-green-400' },
-                                            { label: 'Rejection Rate', value: data.summary.totalApplications > 0 ? `${Math.round(data.summary.rejected / data.summary.totalApplications * 100)}%` : '0%', color: 'text-red-400' },
-                                            { label: 'In Offer Stage', value: data.summary.inOffer, color: 'text-teal-400' },
-                                            { label: 'Open Positions', value: data.summary.openJobs, color: 'text-purple-400' },
+                                            { label: 'Hire Rate', value: (data.summary?.totalApplications ?? 0) > 0 ? `${Math.round((data.summary?.hired ?? 0) / data.summary.totalApplications * 100)}%` : '0%', color: 'text-green-400' },
+                                            { label: 'Rejection Rate', value: (data.summary?.totalApplications ?? 0) > 0 ? `${Math.round((data.summary?.rejected ?? 0) / data.summary.totalApplications * 100)}%` : '0%', color: 'text-red-400' },
+                                            { label: 'In Offer Stage', value: data.summary?.inOffer, color: 'text-teal-400' },
+                                            { label: 'Open Positions', value: data.summary?.openJobs, color: 'text-purple-400' },
                                         ].map(({ label, value, color }) => (
                                             <div key={label} className="flex justify-between items-center py-2 border-b border-white/5">
                                                 <span className="text-white/60 text-sm">{label}</span>
@@ -390,20 +460,20 @@ const Reports = () => {
                         <motion.div key="ess" className="space-y-5"
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                <StatCard label="Total Employees" value={data.summary.totalEmployees} icon={Users} color="text-purple-400" bg="bg-purple-500/10" />
-                                <StatCard label="Departments" value={data.summary.totalDepts} icon={Briefcase} color="text-blue-400" bg="bg-blue-500/10" />
-                                <StatCard label="Salary Configured" value={data.summary.configuredSalaries} icon={BarChart2} color="text-green-400" bg="bg-green-500/10" />
+                                <StatCard label="Total Employees" value={data.summary?.totalEmployees} icon={Users} color="text-purple-400" bg="bg-purple-500/10" />
+                                <StatCard label="Departments" value={data.summary?.totalDepts} icon={Briefcase} color="text-blue-400" bg="bg-blue-500/10" />
+                                <StatCard label="Salary Configured" value={data.summary?.configuredSalaries} icon={BarChart2} color="text-green-400" bg="bg-green-500/10" />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <Section title="🏢 Headcount by Department">
-                                    {data.headcountByDept.length === 0 ? <p className="text-white/30 text-sm">No data</p> :
+                                    {(data.headcountByDept?.length ?? 0) === 0 ? <p className="text-white/30 text-sm">No data</p> :
                                         <BarChart data={data.headcountByDept} labelKey="department" valueKey="count" color="bg-purple-500" />}
                                 </Section>
                                 <Section title="💰 Salary Distribution (Basic)">
-                                    <BarChart data={data.salaryBands} labelKey="band" valueKey="count" color="bg-green-500" />
+                                    <BarChart data={data.salaryBands ?? []} labelKey="band" valueKey="count" color="bg-green-500" />
                                 </Section>
                                 <Section title="🌴 Leave Requests by Status">
-                                    {data.leaveByStatus.length === 0 ? <p className="text-white/30 text-sm">No leave data</p> :
+                                    {(data.leaveByStatus?.length ?? 0) === 0 ? <p className="text-white/30 text-sm">No leave data</p> :
                                         <div className="space-y-3">{data.leaveByStatus.map(l => (
                                             <div key={l.status} className="flex items-center justify-between py-2 border-b border-white/5">
                                                 <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[l.status] || 'bg-white/10 text-white/60'}`}>{l.status}</span>
@@ -412,11 +482,11 @@ const Reports = () => {
                                         ))}</div>}
                                 </Section>
                                 <Section title="📈 New Hires (Last 6 Months)">
-                                    {data.hiringTrend.length === 0 ? <p className="text-white/30 text-sm">No recent hires</p> :
+                                    {(data.hiringTrend?.length ?? 0) === 0 ? <p className="text-white/30 text-sm">No recent hires</p> :
                                         <BarChart data={data.hiringTrend} labelKey="month" valueKey="count" color="bg-teal-500" />}
                                 </Section>
                                 <Section title="👔 Top Designations">
-                                    {data.byDesignation.length === 0 ? <p className="text-white/30 text-sm">No data</p> :
+                                    {(data.byDesignation?.length ?? 0) === 0 ? <p className="text-white/30 text-sm">No data</p> :
                                         <BarChart data={data.byDesignation} labelKey="designation" valueKey="count" color="bg-indigo-500" />}
                                 </Section>
                             </div>
@@ -493,14 +563,14 @@ const Reports = () => {
                             {data && !multiData && (
                                 <>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <StatCard label="Total Employees" value={data.summary.totalEmployees} icon={Users} color="text-purple-400" bg="bg-purple-500/10" />
-                                        <StatCard label="Records" value={data.summary.totalRecords} icon={Calendar} color="text-blue-400" bg="bg-blue-500/10" />
-                                        <StatCard label="Present" value={data.summary.PRESENT || data.summary.present || 0} icon={CheckCircle} color="text-green-400" bg="bg-green-500/10" />
-                                        <StatCard label="Absent" value={data.summary.ABSENT || data.summary.absent || 0} icon={XCircle} color="text-red-400" bg="bg-red-500/10" />
+                                        <StatCard label="Total Employees" value={data.summary?.totalEmployees} icon={Users} color="text-purple-400" bg="bg-purple-500/10" />
+                                        <StatCard label="Records" value={data.summary?.totalRecords} icon={Calendar} color="text-blue-400" bg="bg-blue-500/10" />
+                                        <StatCard label="Present" value={data.summary?.PRESENT || data.summary?.present || 0} icon={CheckCircle} color="text-green-400" bg="bg-green-500/10" />
+                                        <StatCard label="Absent" value={data.summary?.ABSENT || data.summary?.absent || 0} icon={XCircle} color="text-red-400" bg="bg-red-500/10" />
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                         <Section title="📊 Status Breakdown">
-                                            {data.statusBreakdown.length === 0 ? <p className="text-white/30 text-sm">No data for this period</p> :
+                                            {(data.statusBreakdown?.length ?? 0) === 0 ? <p className="text-white/30 text-sm">No data for this period</p> :
                                                 <div className="space-y-3">{data.statusBreakdown.map(s => (
                                                     <div key={s.status} className="flex items-center justify-between py-2 border-b border-white/5">
                                                         <span className={`px-2 py-0.5 rounded text-xs font-medium uppercase ${STATUS_COLORS[s.status?.toUpperCase()] || 'bg-white/10 text-white/60'}`}>{s.status}</span>
@@ -509,14 +579,14 @@ const Reports = () => {
                                                 ))}</div>}
                                         </Section>
                                         <Section title="🏢 Attendance Rate by Department">
-                                            {data.deptAttendance.length === 0 ? <p className="text-white/30 text-sm">No data</p> :
+                                            {(data.deptAttendance?.length ?? 0) === 0 ? <p className="text-white/30 text-sm">No data</p> :
                                                 <BarChart
                                                     data={data.deptAttendance.map(d => ({ ...d, label: `${d.dept} (${d.rate}%)` }))}
                                                     labelKey="label" valueKey="rate" color="bg-teal-500"
                                                 />}
                                         </Section>
                                         <Section title="👤 Employee Attendance Summary">
-                                            {data.employeeSummary.length === 0 ? <p className="text-white/30 text-sm">No data</p> : (
+                                            {(data.employeeSummary?.length ?? 0) === 0 ? <p className="text-white/30 text-sm">No data</p> : (
                                                 <div className="overflow-y-auto max-h-72">
                                                     <table className="w-full text-sm">
                                                         <thead>
@@ -552,6 +622,109 @@ const Reports = () => {
                             )}
                         </motion.div>
                     )}
+                    {/* ── ASSETS ── */}
+                    {!loading && data && activeTab === 'assets' && (
+                        <motion.div key="assets" className="space-y-5"
+                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <StatCard label="Total Assets" value={data.summary?.total} icon={BarChart2} color="text-purple-400" bg="bg-purple-500/10" />
+                                <StatCard label="Assigned" value={data.summary?.assigned} icon={Users} color="text-blue-400" bg="bg-blue-500/10" />
+                                <StatCard label="In Stock" value={data.summary?.inStock} icon={CheckCircle} color="text-green-400" bg="bg-green-500/10" />
+                                <StatCard label="Retired" value={data.summary?.retired} icon={XCircle} color="text-red-400" bg="bg-red-500/10" />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <Section title="🍩 Asset Distribution by Category">
+                                    {(data.byCategory?.length ?? 0) === 0
+                                        ? <p className="text-white/30 text-sm">No assets yet</p>
+                                        : <DonutChart data={data.byCategory} labelKey="category" valueKey="count" />}
+                                </Section>
+                                <Section title="🏢 Assets by Status">
+                                    {(data.byStatus?.length ?? 0) === 0
+                                        ? <p className="text-white/30 text-sm">No data</p>
+                                        : <BarChart data={data.byStatus} labelKey="status" valueKey="count" color="bg-cyan-500" />}
+                                </Section>
+                                <Section title="⚠️ Warranty Expiring Soon (&lt;90 days)">
+                                    {(data.expiringWarranty?.length ?? 0) === 0
+                                        ? <p className="text-white/30 text-sm">No assets expiring soon 🎉</p>
+                                        : <div className="space-y-2">{data.expiringWarranty.map((a, i) => (
+                                            <div key={i} className="flex justify-between items-center py-1.5 border-b border-white/5">
+                                                <span className="text-white/80 text-sm truncate">{a.name}</span>
+                                                <span className={`text-xs font-bold px-2 py-0.5 rounded ${a.daysLeft < 0 ? 'bg-red-500/20 text-red-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                                                    {a.daysLeft < 0 ? 'EXPIRED' : `${a.daysLeft}d left`}
+                                                </span>
+                                            </div>
+                                        ))}</div>}
+                                </Section>
+                                <Section title="👤 Top Assigned Employees">
+                                    {(data.topAssigned?.length ?? 0) === 0
+                                        ? <p className="text-white/30 text-sm">No assignments yet</p>
+                                        : <BarChart data={data.topAssigned} labelKey="name" valueKey="count" color="bg-pink-500" />}
+                                </Section>
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {/* ── LEAVE ── */}
+                    {!loading && data && activeTab === 'leaves' && (
+                        <motion.div key="leaves" className="space-y-5"
+                            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <StatCard label="Total Requests" value={data.summary?.total} icon={Calendar} color="text-purple-400" bg="bg-purple-500/10" />
+                                <StatCard label="Approved" value={data.summary?.approved} icon={CheckCircle} color="text-green-400" bg="bg-green-500/10" />
+                                <StatCard label="Pending" value={data.summary?.pending} icon={Clock} color="text-yellow-400" bg="bg-yellow-500/10" />
+                                <StatCard label="Rejected" value={data.summary?.rejected} icon={XCircle} color="text-red-400" bg="bg-red-500/10" />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <Section title="🍩 Leaves by Type">
+                                    {(data.byType?.length ?? 0) === 0
+                                        ? <p className="text-white/30 text-sm">No leave data</p>
+                                        : <DonutChart data={data.byType} labelKey="type" valueKey="count" />}
+                                </Section>
+                                <Section title="📊 Monthly Leave Trend">
+                                    {(data.monthlyTrend?.length ?? 0) === 0
+                                        ? <p className="text-white/30 text-sm">No data</p>
+                                        : <BarChart data={data.monthlyTrend} labelKey="month" valueKey="count" color="bg-emerald-500" />}
+                                </Section>
+                                <Section title="🌡️ Leave Balance Heatmap">
+                                    {(data.balanceHeatmap?.length ?? 0) === 0
+                                        ? <p className="text-white/30 text-sm">No balance data</p>
+                                        : <div className="overflow-x-auto">
+                                            <table className="w-full text-xs">
+                                                <thead>
+                                                    <tr className="text-white/40 uppercase border-b border-white/10">
+                                                        <th className="text-left py-2">Employee</th>
+                                                        <th className="text-center">Casual</th>
+                                                        <th className="text-center">Earned</th>
+                                                        <th className="text-center">Sick</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {data.balanceHeatmap.map((e, i) => (
+                                                        <tr key={i} className="border-b border-white/5">
+                                                            <td className="py-1.5 text-white/80 truncate max-w-[120px]">{e.name}</td>
+                                                            {['casual', 'earned', 'sick'].map(t => (
+                                                                <td key={t} className="text-center">
+                                                                    <span className={`inline-block px-2 py-0.5 rounded font-bold ${e[t] <= 2 ? 'bg-red-500/20 text-red-300' :
+                                                                        e[t] <= 5 ? 'bg-amber-500/20 text-amber-300' :
+                                                                            'bg-green-500/20 text-green-300'
+                                                                        }`}>{e[t]}</span>
+                                                                </td>
+                                                            ))}
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>}
+                                </Section>
+                                <Section title="🏆 Most Leaves Taken">
+                                    {(data.topTakers?.length ?? 0) === 0
+                                        ? <p className="text-white/30 text-sm">No data</p>
+                                        : <BarChart data={data.topTakers} labelKey="name" valueKey="days" color="bg-orange-500" />}
+                                </Section>
+                            </div>
+                        </motion.div>
+                    )}
+
                 </AnimatePresence>
 
                 {!loading && !data && !multiData && (

@@ -2,7 +2,7 @@
 set -e
 
 # ──────────────────────────────────────────────────────────────────────────────
-# deploy.sh — Bigwig ESS Portal Deployment Script
+# deploy.sh — Binary Semantics Limited ESS Portal Deployment Script
 # Works on: Hetzner, AWS, GCP, Azure, any Linux VPS with Docker
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -41,11 +41,18 @@ DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${
 
 # Application
 JWT_SECRET=CHANGE_ME_RANDOM_SECRET_64CHARS
-PORT=5000
+SESSION_SECRET=CHANGE_ME_RANDOM_SECRET_64CHARS
+SEED_ADMIN_PASSWORD=CHANGE_ME_ADMIN_PASSWORD
+BACKUP_ENCRYPTION_KEY=CHANGE_ME_BACKUP_KEY
+PORT=3434
 NODE_ENV=production
 
+# Redis
+REDIS_URL=redis://redis:6379
+REDIS_PASSWORD=CHANGE_ME_REDIS_PASSWORD
+
 # Frontend
-VITE_API_URL=http://localhost:5000/api
+VITE_API_URL=http://localhost:3434/api
 FRONTEND_URL=http://localhost
 
 # OIDC (optional)
@@ -68,6 +75,50 @@ if [ "$JWT_SECRET" = "CHANGE_ME_RANDOM_SECRET_64CHARS" ] || [ -z "$JWT_SECRET" ]
     ok "JWT_SECRET auto-generated."
 fi
 
+if [ "$SESSION_SECRET" = "CHANGE_ME_RANDOM_SECRET_64CHARS" ] || [ -z "$SESSION_SECRET" ] || ! grep -q "^SESSION_SECRET=" "$ENV_FILE"; then
+    warn "SESSION_SECRET is missing or default. Generating..."
+    NEW_SESSION_SECRET=$(openssl rand -hex 32)
+    if grep -q "^SESSION_SECRET=" "$ENV_FILE"; then
+        sed -i "s/SESSION_SECRET=.*/SESSION_SECRET=${NEW_SESSION_SECRET}/" "$ENV_FILE"
+    else
+        echo "SESSION_SECRET=${NEW_SESSION_SECRET}" >> "$ENV_FILE"
+    fi
+    ok "SESSION_SECRET auto-generated."
+fi
+
+if [ "$SEED_ADMIN_PASSWORD" = "CHANGE_ME_ADMIN_PASSWORD" ] || [ -z "$SEED_ADMIN_PASSWORD" ] || ! grep -q "^SEED_ADMIN_PASSWORD=" "$ENV_FILE"; then
+    warn "SEED_ADMIN_PASSWORD is missing or default. Generating..."
+    NEW_ADMIN_PASS=$(openssl rand -base64 16 | tr -d '=+/')
+    if grep -q "^SEED_ADMIN_PASSWORD=" "$ENV_FILE"; then
+        sed -i "s/SEED_ADMIN_PASSWORD=.*/SEED_ADMIN_PASSWORD=${NEW_ADMIN_PASS}/" "$ENV_FILE"
+    else
+        echo "SEED_ADMIN_PASSWORD=${NEW_ADMIN_PASS}" >> "$ENV_FILE"
+    fi
+    ok "SEED_ADMIN_PASSWORD auto-generated."
+fi
+
+if [ "$BACKUP_ENCRYPTION_KEY" = "CHANGE_ME_BACKUP_KEY" ] || [ -z "$BACKUP_ENCRYPTION_KEY" ] || ! grep -q "^BACKUP_ENCRYPTION_KEY=" "$ENV_FILE"; then
+    warn "BACKUP_ENCRYPTION_KEY is missing or default. Generating..."
+    NEW_BACKUP_KEY=$(openssl rand -base64 32 | tr -d '=+/')
+    if grep -q "^BACKUP_ENCRYPTION_KEY=" "$ENV_FILE"; then
+        sed -i "s/BACKUP_ENCRYPTION_KEY=.*/BACKUP_ENCRYPTION_KEY=${NEW_BACKUP_KEY}/" "$ENV_FILE"
+    else
+        echo "BACKUP_ENCRYPTION_KEY=${NEW_BACKUP_KEY}" >> "$ENV_FILE"
+    fi
+    ok "BACKUP_ENCRYPTION_KEY auto-generated."
+fi
+
+if [ "$REDIS_PASSWORD" = "CHANGE_ME_REDIS_PASSWORD" ] || [ -z "$REDIS_PASSWORD" ] || ! grep -q "^REDIS_PASSWORD=" "$ENV_FILE"; then
+    warn "REDIS_PASSWORD is missing or default. Generating..."
+    NEW_REDIS_PASS=$(openssl rand -base64 24 | tr -d '=+/')
+    if grep -q "^REDIS_PASSWORD=" "$ENV_FILE"; then
+        sed -i "s/REDIS_PASSWORD=.*/REDIS_PASSWORD=${NEW_REDIS_PASS}/" "$ENV_FILE"
+    else
+        echo "REDIS_PASSWORD=${NEW_REDIS_PASS}" >> "$ENV_FILE"
+    fi
+    ok "REDIS_PASSWORD auto-generated."
+fi
+
 if echo "$POSTGRES_PASSWORD" | grep -q "CHANGE_ME"; then
     warn "POSTGRES_PASSWORD is default. Generating random password..."
     NEW_PASS=$(openssl rand -base64 24 | tr -d '=+/')
@@ -85,7 +136,17 @@ docker compose -f "${PROJECT_DIR}/docker-compose.yml" build --no-cache
 
 ok "Images built successfully."
 
-# ── 4. Stop existing containers ──────────────────────────────────────────────
+# ── 4. Stop existing containers & Backup ─────────────────────────────────────
+
+info "Checking if database is running for pre-deployment backup..."
+if docker compose -f "${PROJECT_DIR}/docker-compose.yml" ps | grep -q "postgres.*Up"; then
+    info "Running pre-deployment database backup..."
+    if [ -x "${PROJECT_DIR}/scripts/db-backup.sh" ]; then
+        "${PROJECT_DIR}/scripts/db-backup.sh" || warn "Backup script failed. Proceeding anyway."
+    else
+        warn "Backup script not executable or not found."
+    fi
+fi
 
 info "Stopping existing containers..."
 docker compose -f "${PROJECT_DIR}/docker-compose.yml" down --remove-orphans 2>/dev/null || true
@@ -100,6 +161,9 @@ ok "Services started."
 # ── 6. Wait for database ─────────────────────────────────────────────────────
 
 info "Waiting for database to be ready..."
+if [ -f "${PROJECT_DIR}/postgres-init/01_restore.sql" ]; then
+    info "Found postgres-init/01_restore.sql! Docker will automatically restore this database upon first boot."
+fi
 RETRIES=30
 until docker compose exec -T postgres pg_isready -U "${POSTGRES_USER:-ess_user}" >/dev/null 2>&1 || [ $RETRIES -eq 0 ]; do
     RETRIES=$((RETRIES - 1))
@@ -153,13 +217,15 @@ fi
 
 echo ""
 echo "═══════════════════════════════════════════════════════════════════"
-echo -e " ${GREEN}✓ Bigwig ESS Portal deployed successfully!${NC}"
+echo -e " ${GREEN}✓ Binary Semantics Limited ESS Portal deployed successfully!${NC}"
 echo "═══════════════════════════════════════════════════════════════════"
 echo ""
 echo " Frontend:    http://$(hostname -I | awk '{print $1}')"
 echo " Backend API: http://$(hostname -I | awk '{print $1}'):${BACKEND_PORT}/api"
 echo ""
-echo " Default login: admin@bigwig.local / password123"
+echo " Administrator Login:"
+echo "   User:     admin@bigwig.local"
+echo "   Password: (Check .env file SEED_ADMIN_PASSWORD)"
 echo ""
 echo "───────────────────────────────────────────────────────────────────"
 echo " DNS Setup (if using a domain):"

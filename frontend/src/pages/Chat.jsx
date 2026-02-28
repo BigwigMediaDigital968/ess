@@ -24,7 +24,7 @@ const Chat = () => {
 
     // Initialize Socket
     useEffect(() => {
-        const newSocket = io("${API_BASE_URL}");
+        const newSocket = io(API_BASE_URL.replace('/api', ''));
         setSocket(newSocket);
 
         return () => newSocket.close();

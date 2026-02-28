@@ -1,0 +1,128 @@
+{
+    "family": "ess-bsl",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "2048",
+    "memory": "4096",
+    "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+    "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskRole",
+    "containerDefinitions": [
+        {
+            "name": "backend",
+            "image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/ess-bsl-backend:latest",
+            "essential": true,
+            "portMappings": [
+                {
+                    "containerPort": 3434,
+                    "protocol": "tcp"
+                }
+            ],
+            "environment": [
+                {
+                    "name": "NODE_ENV",
+                    "value": "production"
+                },
+                {
+                    "name": "PORT",
+                    "value": "3434"
+                }
+            ],
+            "secrets": [
+                {
+                    "name": "DATABASE_URL",
+                    "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:ess-bsl/db-url"
+                },
+                {
+                    "name": "JWT_SECRET",
+                    "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:ess-bsl/jwt-secret"
+                },
+                {
+                    "name": "REDIS_URL",
+                    "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:ess-bsl/redis-url"
+                },
+                {
+                    "name": "FRONTEND_URL",
+                    "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:ess-bsl/frontend-url"
+                }
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/ess-bsl-backend",
+                    "awslogs-region": "REGION",
+                    "awslogs-stream-prefix": "backend"
+                }
+            },
+            "healthCheck": {
+                "command": [
+                    "CMD-SHELL",
+                    "curl -f http://localhost:3434/ || exit 1"
+                ],
+                "interval": 30,
+                "timeout": 5,
+                "retries": 3,
+                "startPeriod": 60
+            },
+            "readonlyRootFilesystem": false,
+            "ulimits": [
+                {
+                    "name": "nofile",
+                    "softLimit": 65536,
+                    "hardLimit": 65536
+                }
+            ]
+        },
+        {
+            "name": "frontend",
+            "image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/ess-bsl-frontend:latest",
+            "essential": true,
+            "portMappings": [
+                {
+                    "containerPort": 80,
+                    "protocol": "tcp"
+                },
+                {
+                    "containerPort": 443,
+                    "protocol": "tcp"
+                }
+            ],
+            "dependsOn": [
+                {
+                    "containerName": "backend",
+                    "condition": "HEALTHY"
+                }
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/ess-bsl-frontend",
+                    "awslogs-region": "REGION",
+                    "awslogs-stream-prefix": "frontend"
+                }
+            },
+            "readonlyRootFilesystem": true,
+            "mountPoints": [
+                {
+                    "sourceVolume": "nginx-cache",
+                    "containerPath": "/var/cache/nginx",
+                    "readOnly": false
+                },
+                {
+                    "sourceVolume": "nginx-run",
+                    "containerPath": "/var/run",
+                    "readOnly": false
+                }
+            ]
+        }
+    ],
+    "volumes": [
+        {
+            "name": "nginx-cache"
+        },
+        {
+            "name": "nginx-run"
+        }
+    ]
+}

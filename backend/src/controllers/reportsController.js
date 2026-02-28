@@ -1,5 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const PDFDocument = require('pdfkit');
+
 
 // ─── RECRUITMENT REPORTS ─────────────────────────────────────────────────────
 
@@ -470,6 +472,466 @@ exports.getMonthlySummary = async (req, res) => {
         });
     } catch (error) {
         console.error(error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ─── PDF EXPORT ──────────────────────────────────────────────────────────────
+
+function pdfDrawTable(doc, headers, rows, startX, startY, colWidths) {
+    const rowH = 22;
+    let y = startY;
+    const totalW = colWidths.reduce((a, b) => a + b, 0);
+
+    // Header
+    doc.fillColor('#a855f7').rect(startX, y, totalW, rowH).fill();
+    doc.fillColor('#ffffff').fontSize(9).font('Helvetica-Bold');
+    let x = startX;
+    headers.forEach((h, i) => {
+        doc.text(h, x + 4, y + 6, { width: colWidths[i] - 8, lineBreak: false });
+        x += colWidths[i];
+    });
+    y += rowH;
+
+    // Rows
+    doc.font('Helvetica').fontSize(8);
+    rows.forEach((row, ri) => {
+        const bg = ri % 2 === 0 ? '#ffffff' : '#f5f0ff';
+        doc.fillColor(bg).rect(startX, y, totalW, rowH).fill();
+        doc.fillColor('#1a1a1a');
+        x = startX;
+        row.forEach((cell, ci) => {
+            doc.text(String(cell ?? '-'), x + 4, y + 6, { width: colWidths[ci] - 8, lineBreak: false });
+            x += colWidths[ci];
+        });
+        y += rowH;
+        if (y > doc.page.height - 60) { doc.addPage(); y = 50; }
+    });
+    return y + 10;
+}
+
+function pdfHeader(doc, org, title, subtitle) {
+    doc.rect(0, 0, doc.page.width, 68).fill('#a855f7');
+    doc.fillColor('#ffffff').fontSize(18).font('Helvetica-Bold').text(org?.name || 'ESS Portal', 30, 12, { width: 330 });
+    doc.fontSize(8).font('Helvetica').text('EMPLOYEE SELF SERVICE', 30, 36);
+    doc.fontSize(14).font('Helvetica-Bold').text(title, 0, 16, { align: 'right', width: doc.page.width - 30 });
+    if (subtitle) doc.fontSize(9).font('Helvetica').text(subtitle, 0, 38, { align: 'right', width: doc.page.width - 30 });
+    doc.fillColor('#1a1a1a');
+    return 82;
+}
+
+exports.exportReportPDF = async (req, res) => {
+    const { type, month, year } = req.query;
+    const orgId = req.user.organizationId;
+
+    try {
+        const org = orgId ? await prisma.organization.findUnique({ where: { id: orgId } }) : null;
+        const doc = new PDFDocument({ margin: 30, size: 'A4' });
+
+        const m = month ? parseInt(month) : new Date().getMonth() + 1;
+        const y = year ? parseInt(year) : new Date().getFullYear();
+        const monthName = new Date(y, m - 1, 1).toLocaleString('default', { month: 'long' });
+        const period = `${monthName} ${y}`;
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${type}-report-${period.replace(/ /g, '-')}.pdf"`);
+        doc.pipe(res);
+
+        if (type === 'attendance') {
+            const startDate = new Date(y, m - 1, 1);
+            const endDate = new Date(y, m, 1);
+            const records = await prisma.attendance.findMany({
+                where: { date: { gte: startDate, lt: endDate }, user: orgId ? { organizationId: orgId } : undefined },
+                include: { user: { select: { name: true, department: { select: { name: true } } } } }
+            });
+            const empMap = {};
+            for (const r of records) {
+                if (!empMap[r.userId]) empMap[r.userId] = { name: r.user.name, dept: r.user.department?.name || 'N/A', present: 0, half: 0, absent: 0, late: 0, wfh: 0 };
+                const e = empMap[r.userId];
+                if (r.status === 'PRESENT') e.present++;
+                else if (r.status === 'HALF_DAY') e.half++;
+                else if (r.status === 'ABSENT') e.absent++;
+                if (r.isLate) e.late++;
+                if (r.type === 'WFH') e.wfh++;
+            }
+            let y2 = pdfHeader(doc, org, 'Attendance Report', period);
+            doc.fontSize(8).fillColor('#666').text(`Generated: ${new Date().toLocaleString()}  |  Total Records: ${records.length}`, 30, y2);
+            y2 += 16;
+            const rows = Object.values(empMap).map(e => {
+                const total = e.present + e.half + e.absent || 1;
+                return [e.name, e.dept, e.present, e.half, e.absent, e.late, e.wfh, `${Math.round(((e.present + e.half * 0.5) / total) * 100)}%`];
+            });
+            pdfDrawTable(doc, ['Employee', 'Department', 'Present', 'Half Day', 'Absent', 'Late', 'WFH', 'Present %'], rows, 30, y2, [110, 90, 47, 53, 47, 40, 40, 63]);
+
+        } else if (type === 'recruitment') {
+            const pipeline = await prisma.application.groupBy({ by: ['status'], _count: { status: true } });
+            const totalJobs = await prisma.jobPosting.count();
+            const openJobs = await prisma.jobPosting.count({ where: { status: 'OPEN' } });
+            let y2 = pdfHeader(doc, org, 'Recruitment Report', period);
+            doc.fontSize(8).fillColor('#666').text(`Generated: ${new Date().toLocaleString()}  |  Total Jobs: ${totalJobs}  Open: ${openJobs}`, 30, y2); y2 += 16;
+            doc.fontSize(11).font('Helvetica-Bold').fillColor('#a855f7').text('Application Pipeline', 30, y2); y2 += 16;
+            y2 = pdfDrawTable(doc, ['Status', 'Count'], pipeline.map(r => [r.status, r._count.status]), 30, y2, [250, 210]);
+            const appsPerJob = await prisma.application.groupBy({ by: ['jobId'], _count: { jobId: true }, orderBy: { _count: { jobId: 'desc' } }, take: 10 });
+            const jobs = await prisma.jobPosting.findMany({ where: { id: { in: appsPerJob.map(a => a.jobId) } }, select: { id: true, title: true, department: true } });
+            const jMap = Object.fromEntries(jobs.map(j => [j.id, j]));
+            doc.fontSize(11).font('Helvetica-Bold').fillColor('#a855f7').text('Top Jobs by Applications', 30, y2); y2 += 16;
+            pdfDrawTable(doc, ['Job Title', 'Department', 'Applications'], appsPerJob.map(a => [jMap[a.jobId]?.title || a.jobId, jMap[a.jobId]?.department || '-', a._count.jobId]), 30, y2, [230, 150, 80]);
+
+        } else if (type === 'ess') {
+            const startDate = new Date(y, m - 1, 1);
+            const endDate = new Date(y, m, 1);
+            const leavesByType = await prisma.leaveRequest.groupBy({ by: ['type', 'status'], _count: { type: true }, where: { startDate: { gte: startDate, lt: endDate } } });
+            const wfhCount = await prisma.attendance.count({ where: { date: { gte: startDate, lt: endDate }, type: 'WFH', user: orgId ? { organizationId: orgId } : undefined } });
+            let y2 = pdfHeader(doc, org, 'ESS Report', period);
+            doc.fontSize(8).fillColor('#666').text(`Generated: ${new Date().toLocaleString()}  |  WFH Days This Period: ${wfhCount}`, 30, y2); y2 += 16;
+            doc.fontSize(11).font('Helvetica-Bold').fillColor('#a855f7').text('Leave Requests by Type & Status', 30, y2); y2 += 16;
+            pdfDrawTable(doc, ['Leave Type', 'Status', 'Count'], leavesByType.map(l => [l.type, l.status, l._count.type]), 30, y2, [160, 160, 140]);
+
+        } else if (type === 'servicedesk') {
+            const orgFilter = orgId ? { organizationId: orgId } : {};
+
+            let dateFilter = {};
+            if (req.query.startDate && req.query.endDate) {
+                dateFilter = {
+                    createdAt: {
+                        gte: new Date(req.query.startDate),
+                        lt: new Date(req.query.endDate)
+                    }
+                };
+            }
+
+            const subType = req.query.subType || 'summary';
+
+            if (subType === 'summary') {
+                const totalIncs = await prisma.ticket.count({ where: { ...orgFilter, ...dateFilter, type: 'INCIDENT' } });
+                const resolvedIncs = await prisma.ticket.count({ where: { ...orgFilter, ...dateFilter, type: 'INCIDENT', status: { in: ['RESOLVED', 'CLOSED'] } } });
+                const breached = await prisma.ticket.count({ where: { ...orgFilter, ...dateFilter, slaBreached: true } });
+                const totalChanges = await prisma.changeRequest.count({ where: { ...orgFilter, ...dateFilter } });
+                const activeProbs = await prisma.problem.count({ where: { ...orgFilter, ...dateFilter, status: { notIn: ['CLOSED', 'KNOWN_ERROR'] } } });
+
+                let y2 = pdfHeader(doc, org, 'ITIL Service Desk Executive Summary', period);
+                doc.fontSize(8).fillColor('#666').text(`Generated: ${new Date().toLocaleString()}  |  Total Incidents: ${totalIncs}  |  Resolved: ${resolvedIncs}`, 30, y2); y2 += 24;
+
+                doc.fontSize(11).font('Helvetica-Bold').fillColor('#a855f7').text('Volume Breakdown', 30, y2); y2 += 16;
+                pdfDrawTable(doc, ['Metric', 'Count'], [
+                    ['Open Incidents', totalIncs - resolvedIncs],
+                    ['SLA Breaches', breached],
+                    ['Total Change Requests', totalChanges],
+                    ['Active Problems / Known Errors', activeProbs]
+                ], 30, y2, [250, 120]);
+
+            } else if (subType === 'incident_monthly') {
+                const incidents = await prisma.ticket.findMany({
+                    where: { ...orgFilter, ...dateFilter, type: 'INCIDENT' },
+                    select: { ticketNumber: true, title: true, status: true, priority: true, createdAt: true },
+                    orderBy: { createdAt: 'desc' }
+                });
+                let y2 = pdfHeader(doc, org, 'Incident Report', period);
+                doc.fontSize(8).fillColor('#666').text(`Generated: ${new Date().toLocaleString()}  |  Total Incidents: ${incidents.length}`, 30, y2); y2 += 24;
+                doc.fontSize(11).font('Helvetica-Bold').fillColor('#a855f7').text('Incident Log', 30, y2); y2 += 16;
+
+                const rows = incidents.map(i => [
+                    i.ticketNumber,
+                    (i.title || '').substring(0, 30) + (i.title?.length > 30 ? '...' : ''),
+                    i.status,
+                    i.priority,
+                    i.createdAt.toLocaleDateString()
+                ]);
+                pdfDrawTable(doc, ['Ticket #', 'Title', 'Status', 'Priority', 'Logged On'], rows, 30, y2, [70, 200, 80, 70, 80]);
+
+            } else if (subType === 'sla_monthly') {
+                const tickets = await prisma.ticket.findMany({
+                    where: { ...orgFilter, ...dateFilter, type: 'INCIDENT', slaId: { not: null } },
+                    include: { sla: true },
+                    orderBy: { createdAt: 'desc' }
+                });
+
+                let y2 = pdfHeader(doc, org, 'SLA Compliance Report', period);
+                doc.fontSize(8).fillColor('#666').text(`Generated: ${new Date().toLocaleString()}  |  Total SLA Tracked Tickets: ${tickets.length}`, 30, y2); y2 += 24;
+                doc.fontSize(11).font('Helvetica-Bold').fillColor('#a855f7').text('SLA Execution Log', 30, y2); y2 += 16;
+
+                const rows = tickets.map(t => [
+                    t.ticketNumber,
+                    t.sla?.name || 'Default',
+                    t.slaBreached ? 'BREACHED' : (['RESOLVED', 'CLOSED'].includes(t.status) ? 'ACCOMPLISHED' : 'IN_PROGRESS'),
+                    t.slaResolutionDue ? t.slaResolutionDue.toLocaleDateString() : 'N/A'
+                ]);
+                pdfDrawTable(doc, ['Ticket #', 'Policy', 'Compliance State', 'Resolution Due'], rows, 30, y2, [80, 180, 130, 110]);
+
+            } else if (subType === 'engineer_wise') {
+                const closures = await prisma.ticket.findMany({
+                    where: { ...orgFilter, ...dateFilter, type: 'INCIDENT', status: { in: ['RESOLVED', 'CLOSED'] } },
+                    include: { assignee: { select: { name: true } } }
+                });
+
+                const agentMap = {};
+                closures.forEach(t => {
+                    const name = t.assignee?.name || 'Unassigned';
+                    if (!agentMap[name]) agentMap[name] = 0;
+                    agentMap[name]++;
+                });
+
+                let y2 = pdfHeader(doc, org, 'Engineer-wise Closure Report', period);
+                doc.fontSize(8).fillColor('#666').text(`Generated: ${new Date().toLocaleString()}  |  Total Closures: ${closures.length}`, 30, y2); y2 += 24;
+                doc.fontSize(11).font('Helvetica-Bold').fillColor('#top').text('Agent Resolution Scoreboard', 30, y2); y2 += 16;
+
+                const rows = Object.entries(agentMap).sort((a, b) => b[1] - a[1]);
+                pdfDrawTable(doc, ['Engineer Name', 'Tickets Resolved'], rows, 30, y2, [250, 150]);
+
+            } else if (subType === 'team_category_wise') {
+                const tickets = await prisma.ticket.findMany({
+                    where: { ...orgFilter, ...dateFilter },
+                    include: { team: { select: { name: true } }, category: { select: { name: true } } }
+                });
+
+                const teamCatMap = {};
+                tickets.forEach(t => {
+                    const teamName = t.team?.name || 'No Team';
+                    const catName = t.category?.name || 'Uncategorized';
+                    const key = `${teamName} | ${catName}`;
+                    if (!teamCatMap[key]) teamCatMap[key] = { team: teamName, category: catName, count: 0 };
+                    teamCatMap[key].count++;
+                });
+
+                let y2 = pdfHeader(doc, org, 'Team & Category Load Report', period);
+                doc.fontSize(8).fillColor('#666').text(`Generated: ${new Date().toLocaleString()}  |  Total Tickets: ${tickets.length}`, 30, y2); y2 += 24;
+                doc.fontSize(11).font('Helvetica-Bold').fillColor('#a855f7').text('Assignment Distribution', 30, y2); y2 += 16;
+
+                const rows = Object.values(teamCatMap)
+                    .sort((a, b) => b.count - a.count)
+                    .map(tc => [tc.team, tc.category, tc.count]);
+                pdfDrawTable(doc, ['Assigned Team', 'Ticket Category', 'Volume'], rows, 30, y2, [200, 200, 100]);
+
+            }
+        } else {
+            doc.text('Unknown report type. Supported: attendance, recruitment, ess', 30, 100);
+        }
+
+        doc.end();
+    } catch (error) {
+        console.error('PDF export error:', error);
+        if (!res.headersSent) res.status(500).json({ message: error.message });
+    }
+};
+
+// ─── ASSET REPORT ───────────────────────────────────────────────────────────────
+exports.getAssetsReport = async (req, res) => {
+    try {
+        const orgId = req.user.organizationId;
+        const where = orgId ? { organizationId: orgId } : {};
+
+        const total = await prisma.asset.count({ where });
+        const assigned = await prisma.asset.count({ where: { ...where, status: 'ASSIGNED' } });
+        const inStock = await prisma.asset.count({ where: { ...where, status: 'IN_STOCK' } });
+        const retired = await prisma.asset.count({ where: { ...where, status: 'RETIRED' } });
+
+        // By category
+        const byCategoryRaw = await prisma.asset.groupBy({
+            by: ['category'], _count: { category: true }, where
+        });
+        const byCategory = byCategoryRaw.map(r => ({ category: r.category, count: r._count.category }));
+
+        // By status
+        const byStatusRaw = await prisma.asset.groupBy({
+            by: ['status'], _count: { status: true }, where
+        });
+        const byStatus = byStatusRaw.map(r => ({ status: r.status, count: r._count.status }));
+
+        // Warranty expiring within 90 days or expired
+        const now = new Date();
+        const in90 = new Date(); in90.setDate(in90.getDate() + 90);
+        const expiringAssets = await prisma.asset.findMany({
+            where: { ...where, warrantyExpiry: { lte: in90 } },
+            select: { name: true, serialNumber: true, warrantyExpiry: true },
+            orderBy: { warrantyExpiry: 'asc' }
+        });
+        const expiringWarranty = expiringAssets.map(a => ({
+            name: a.name,
+            serialNumber: a.serialNumber,
+            daysLeft: Math.ceil((new Date(a.warrantyExpiry) - now) / 86400000)
+        }));
+
+        // Top employees with most assigned assets
+        const assignedAssets = await prisma.asset.findMany({
+            where: { ...where, assignedToId: { not: null } },
+            select: { assignedToId: true, assignedTo: { select: { name: true } } }
+        });
+        const assigneeCount = {};
+        assignedAssets.forEach(a => {
+            const name = a.assignedTo?.name || a.assignedToId;
+            assigneeCount[name] = (assigneeCount[name] || 0) + 1;
+        });
+        const topAssigned = Object.entries(assigneeCount)
+            .sort((a, b) => b[1] - a[1]).slice(0, 10)
+            .map(([name, count]) => ({ name, count }));
+
+        res.json({ summary: { total, assigned, inStock, retired }, byCategory, byStatus, expiringWarranty, topAssigned });
+    } catch (error) {
+        console.error('getAssetsReport error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ─── LEAVE REPORT ───────────────────────────────────────────────────────────────
+exports.getLeavesReport = async (req, res) => {
+    try {
+        const orgId = req.user.organizationId;
+
+        // Summary counts
+        const total = await prisma.leave.count();
+        const approved = await prisma.leave.count({ where: { status: 'APPROVED' } });
+        const pending = await prisma.leave.count({ where: { status: 'PENDING' } });
+        const rejected = await prisma.leave.count({ where: { status: 'REJECTED' } });
+
+        // By type
+        const byTypeRaw = await prisma.leave.groupBy({
+            by: ['type'], _count: { type: true }
+        });
+        const byType = byTypeRaw.map(r => ({ type: r.type, count: r._count.type }));
+
+        // Monthly trend (last 12 months)
+        const twelveMonthsAgo = new Date();
+        twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
+        const recentLeaves = await prisma.leave.findMany({
+            where: { createdAt: { gte: twelveMonthsAgo } },
+            select: { createdAt: true }
+        });
+        const monthlyMap = {};
+        recentLeaves.forEach(l => {
+            const key = `${l.createdAt.getFullYear()}-${String(l.createdAt.getMonth() + 1).padStart(2, '0')}`;
+            monthlyMap[key] = (monthlyMap[key] || 0) + 1;
+        });
+        const monthlyTrend = Object.entries(monthlyMap).sort().map(([month, count]) => ({ month, count }));
+
+        // Leave balance heatmap (top 30 by lowest casual)
+        const balances = await prisma.leaveBalance.findMany({
+            include: { user: { select: { name: true } } },
+            orderBy: { casualLeaves: 'asc' },
+            take: 30
+        });
+        const balanceHeatmap = balances.map(b => ({
+            name: b.user?.name || 'Unknown',
+            casual: b.casualLeaves ?? 0,
+            earned: b.earnedLeaves ?? 0,
+            sick: b.sickLeaves ?? 0
+        }));
+
+        // Top leave takers (by approved days)
+        const approvedLeaves = await prisma.leave.findMany({
+            where: { status: 'APPROVED' },
+            select: { userId: true, startDate: true, endDate: true, user: { select: { name: true } } }
+        });
+        const takerMap = {};
+        approvedLeaves.forEach(l => {
+            const name = l.user?.name || l.userId;
+            const days = Math.ceil((new Date(l.endDate) - new Date(l.startDate)) / 86400000) + 1;
+            takerMap[name] = (takerMap[name] || 0) + days;
+        });
+        const topTakers = Object.entries(takerMap)
+            .sort((a, b) => b[1] - a[1]).slice(0, 10)
+            .map(([name, days]) => ({ name, days }));
+
+        res.json({ summary: { total, approved, pending, rejected }, byType, monthlyTrend, balanceHeatmap, topTakers });
+    } catch (error) {
+        console.error('getLeavesReport error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ─── SERVICE DESK REPORT (ITIL) ────────────────────────────────────────────────
+exports.getServiceDeskReport = async (req, res) => {
+    try {
+        const orgId = req.user.organizationId;
+        const orgFilter = orgId ? { organizationId: orgId } : {};
+
+        const dateFilter = {};
+        if (req.query.startDate && req.query.endDate) {
+            dateFilter.createdAt = {
+                gte: new Date(req.query.startDate),
+                lt: new Date(req.query.endDate)
+            };
+        }
+
+        // 1. Core Incident Metrics
+        const totalIncidents = await prisma.ticket.count({ where: { ...orgFilter, ...dateFilter, type: 'INCIDENT' } });
+        const openIncidents = await prisma.ticket.count({ where: { ...orgFilter, ...dateFilter, type: 'INCIDENT', status: { in: ['OPEN', 'IN_PROGRESS'] } } });
+        const resolvedIncidents = await prisma.ticket.count({ where: { ...orgFilter, ...dateFilter, type: 'INCIDENT', status: { in: ['RESOLVED', 'CLOSED'] } } });
+
+        // 2. Incident Volume by Priority
+        const byPriorityRaw = await prisma.ticket.groupBy({
+            by: ['priority'], _count: { priority: true },
+            where: { ...orgFilter, ...dateFilter, type: 'INCIDENT' }
+        });
+        const byPriority = byPriorityRaw.map(r => ({ priority: r.priority, count: r._count.priority }));
+
+        // 3. Incident Volume by Status
+        const byStatusRaw = await prisma.ticket.groupBy({
+            by: ['status'], _count: { status: true },
+            where: { ...orgFilter, ...dateFilter, type: 'INCIDENT' }
+        });
+        const byStatus = byStatusRaw.map(r => ({ status: r.status, count: r._count.status }));
+
+        // 4. SLA Metrics
+        const breached = await prisma.ticket.count({ where: { ...orgFilter, ...dateFilter, slaBreached: true } });
+        const slaMetrics = [
+            { metric: 'Breached', count: breached },
+            { metric: 'Accomplished', count: Math.max(0, resolvedIncidents - breached) }
+        ];
+
+        // 5. Agent Performance (Top resolving assignees)
+        const agentClosures = await prisma.ticket.findMany({
+            where: { ...orgFilter, ...dateFilter, type: 'INCIDENT', status: { in: ['RESOLVED', 'CLOSED'] }, assigneeId: { not: null } },
+            select: { assignee: { select: { name: true } } }
+        });
+        const agentMap = {};
+        agentClosures.forEach(t => {
+            const name = t.assignee?.name || 'Unknown';
+            agentMap[name] = (agentMap[name] || 0) + 1;
+        });
+        const agentPerformance = Object.entries(agentMap)
+            .sort((a, b) => b[1] - a[1]).slice(0, 10)
+            .map(([name, count]) => ({ name, count }));
+
+        // 6. Monthly Ticket Trend (Last 12 months)
+        const twelveMonthsAgo = new Date();
+        twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
+        const recentTickets = await prisma.ticket.findMany({
+            where: { ...orgFilter, createdAt: { gte: twelveMonthsAgo } },
+            select: { createdAt: true }
+        });
+        const monthlyMap = {};
+        recentTickets.forEach(t => {
+            const m = `${t.createdAt.getFullYear()}-${String(t.createdAt.getMonth() + 1).padStart(2, '0')}`;
+            monthlyMap[m] = (monthlyMap[m] || 0) + 1;
+        });
+        const ticketTrend = Object.entries(monthlyMap).sort().map(([month, count]) => ({ month, count }));
+
+        // 7. ITIL Distribution (Change & Problem)
+        const activeChangesFilter = { ...orgFilter, ...dateFilter };
+        const totalChanges = await prisma.changeRequest.count({ where: activeChangesFilter });
+        const openChanges = await prisma.changeRequest.count({ where: { ...activeChangesFilter, status: { notIn: ['CLOSED', 'REJECTED', 'IMPLEMENTED'] } } });
+        const changesByTypeRaw = await prisma.changeRequest.groupBy({
+            by: ['type'], _count: { type: true }, where: activeChangesFilter
+        });
+        const changesByType = changesByTypeRaw.map(r => ({ type: r.type, count: r._count.type }));
+
+        const totalProblems = await prisma.problem.count({ where: { ...orgFilter, ...dateFilter } });
+        const activeProblems = await prisma.problem.count({ where: { ...orgFilter, ...dateFilter, status: { notIn: ['CLOSED', 'KNOWN_ERROR'] } } });
+
+        res.json({
+            summary: {
+                totalIncidents, openIncidents, resolvedIncidents,
+                totalChanges, openChanges, totalProblems, activeProblems
+            },
+            byPriority,
+            byStatus,
+            slaMetrics,
+            agentPerformance,
+            ticketTrend,
+            changesByType
+        });
+    } catch (error) {
+        console.error('getServiceDeskReport error:', error);
         res.status(500).json({ message: error.message });
     }
 };

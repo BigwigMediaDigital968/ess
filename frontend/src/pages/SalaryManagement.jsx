@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { API_BASE_URL } from "../utils/config";
 import { useAuth } from "../context/AuthContext";
-import { IndianRupee, Users, ChevronDown, ChevronUp, Save, RefreshCw, Calculator, Info } from "lucide-react";
+import { IndianRupee, Users, ChevronDown, ChevronUp, Save, RefreshCw, Calculator, Info, FileSpreadsheet, Zap, FileText } from "lucide-react";
 
 // ─── Indian IT Salary Computation (mirrors backend logic) ───────────────────
 const computeBreakdown = (s, workingDays = 26, paidDays = 26, lopDays = 0) => {
@@ -112,6 +112,11 @@ const SalaryManagement = () => {
     const [payrollForm, setPayrollForm] = useState({ month: new Date().getMonth() + 1, year: new Date().getFullYear(), presentDays: 26, paidLeaves: 0, lopDays: 0, workingDays: 26, totalDays: 30 });
     const [generatingPayroll, setGeneratingPayroll] = useState(false);
     const [successMsg, setSuccessMsg] = useState('');
+    const [exportingExcel, setExportingExcel] = useState(false);
+    const [bulkPayrollForm, setBulkPayrollForm] = useState({ month: new Date().getMonth() + 1, year: new Date().getFullYear() });
+    const [generatingBulk, setGeneratingBulk] = useState(false);
+    const [bulkResult, setBulkResult] = useState(null);
+    const [showBulkPanel, setShowBulkPanel] = useState(false);
 
     const canEdit = ['HR', 'ADMIN', 'OWNER'].includes(user?.LegacyRole) ||
         user?.isOwner ||
@@ -214,6 +219,39 @@ const SalaryManagement = () => {
 
     const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+    const handleExportExcel = async () => {
+        setExportingExcel(true);
+        try {
+            const res = await api.get(`/salary/export-excel?month=${bulkPayrollForm.month}&year=${bulkPayrollForm.year}`, { responseType: 'blob' });
+            const url = URL.createObjectURL(new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `SalarySheet-${MONTHS[bulkPayrollForm.month - 1]}-${bulkPayrollForm.year}.xlsx`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            alert(e.response?.data?.message || 'Export failed');
+        } finally {
+            setExportingExcel(false);
+        }
+    };
+
+    const handleGenerateFromAttendance = async () => {
+        setGeneratingBulk(true);
+        setBulkResult(null);
+        try {
+            const { data } = await api.post('/salary/generate-from-attendance', {
+                month: parseInt(bulkPayrollForm.month),
+                year: parseInt(bulkPayrollForm.year)
+            });
+            setBulkResult(data);
+        } catch (e) {
+            alert(e.response?.data?.message || 'Bulk generation failed');
+        } finally {
+            setGeneratingBulk(false);
+        }
+    };
+
     return (
         <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
@@ -223,11 +261,112 @@ const SalaryManagement = () => {
                     </h1>
                     <p className="text-white/40 text-sm mt-1">Indian IT / Digital Marketing — CTC Builder</p>
                 </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-lg">
-                    <IndianRupee size={14} className="text-green-400" />
-                    <span className="text-green-400 text-xs font-medium">FY 2024-25 Tax Rules</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                    {canEdit && (
+                        <>
+                            <div className="flex gap-2">
+                                <select value={bulkPayrollForm.month} onChange={e => setBulkPayrollForm(p => ({ ...p, month: e.target.value }))}
+                                    className="bg-black/30 text-white text-xs p-1.5 rounded-lg border border-white/10 focus:border-teal-500 focus:outline-none">
+                                    {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                                </select>
+                                <input type="number" value={bulkPayrollForm.year} onChange={e => setBulkPayrollForm(p => ({ ...p, year: e.target.value }))}
+                                    className="w-20 bg-black/30 text-white text-xs p-1.5 rounded-lg border border-white/10 focus:border-teal-500 focus:outline-none" />
+                            </div>
+                            <button onClick={() => setShowBulkPanel(!showBulkPanel)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/30 border border-purple-500/50 text-purple-300 rounded-lg hover:bg-purple-600/50 text-xs font-medium transition">
+                                <Zap size={13} /> Generate from Attendance
+                            </button>
+                            <button onClick={handleExportExcel} disabled={exportingExcel}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600/30 border border-teal-500/50 text-teal-300 rounded-lg hover:bg-teal-600/50 text-xs font-medium disabled:opacity-50 transition">
+                                <FileSpreadsheet size={13} />
+                                {exportingExcel ? 'Exporting...' : 'Export Excel'}
+                            </button>
+                            <button onClick={() => {
+                                const a = document.createElement('a');
+                                a.href = `${api.defaults.baseURL.replace('/api', '')}/api/salary/slip-pdf?month=${bulkPayrollForm.month}&year=${bulkPayrollForm.year}`;
+                                a.download = `SalarySlip.pdf`;
+                                a.target = '_blank';
+                                // Attach token for auth
+                                const token = localStorage.getItem('token');
+                                if (token) {
+                                    fetch(a.href, { headers: { 'Authorization': `Bearer ${token}` } })
+                                        .then(res => res.blob())
+                                        .then(blob => {
+                                            const url = URL.createObjectURL(blob);
+                                            const link = document.createElement('a');
+                                            link.href = url;
+                                            link.download = `SalarySlip_${bulkPayrollForm.month}_${bulkPayrollForm.year}.pdf`;
+                                            link.click();
+                                            URL.revokeObjectURL(url);
+                                        });
+                                }
+                            }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/30 border border-red-500/50 text-red-300 rounded-lg hover:bg-red-600/50 text-xs font-medium transition">
+                                <FileText size={13} />
+                                Download Slip PDF
+                            </button>
+                        </>
+                    )}
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-lg">
+                        <IndianRupee size={14} className="text-green-400" />
+                        <span className="text-green-400 text-xs font-medium">FY 2024-25 Tax Rules</span>
+                    </div>
                 </div>
             </div>
+
+            {/* Bulk Payroll from Attendance Panel */}
+            {showBulkPanel && canEdit && (
+                <div className="bg-purple-900/20 border border-purple-500/30 rounded-2xl p-5">
+                    <h3 className="text-sm font-bold text-purple-300 flex items-center gap-2 mb-4">
+                        <Zap size={16} /> Auto-Generate Payroll from Attendance Records
+                        <span className="text-xs text-white/40 font-normal ml-2">Reads actual clock-in/out data for all employees</span>
+                    </h3>
+                    {bulkResult ? (
+                        <div className="space-y-3">
+                            <p className="text-green-400 font-semibold">{bulkResult.message}</p>
+                            <p className="text-white/50 text-sm">Period: {bulkResult.period} · Working Days: {bulkResult.workingDays}</p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                {bulkResult.processed?.length > 0 && (
+                                    <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3">
+                                        <p className="text-green-400 font-bold text-lg">{bulkResult.processed.length}</p>
+                                        <p className="text-white/50 text-xs">Processed</p>
+                                        <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                                            {bulkResult.processed.map((e, i) => (
+                                                <p key={i} className="text-xs text-white/60">{e.name} — ₹{Math.round(e.netPay).toLocaleString('en-IN')} ({e.presentDays}d present, {e.lopDays}d LOP)</p>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {bulkResult.skipped?.length > 0 && (
+                                    <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
+                                        <p className="text-yellow-400 font-bold text-lg">{bulkResult.skipped.length}</p>
+                                        <p className="text-white/50 text-xs">Skipped</p>
+                                        <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                                            {bulkResult.skipped.map((e, i) => <p key={i} className="text-xs text-white/60">{e.name}: {e.reason}</p>)}
+                                        </div>
+                                    </div>
+                                )}
+                                {bulkResult.errors?.length > 0 && (
+                                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3">
+                                        <p className="text-red-400 font-bold text-lg">{bulkResult.errors.length}</p>
+                                        <p className="text-white/50 text-xs">Errors</p>
+                                        <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                                            {bulkResult.errors.map((e, i) => <p key={i} className="text-xs text-red-300">{e.name}: {e.error}</p>)}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <button onClick={() => setBulkResult(null)} className="text-xs text-white/40 hover:text-white/60">Clear results</button>
+                        </div>
+                    ) : (
+                        <button onClick={handleGenerateFromAttendance} disabled={generatingBulk}
+                            className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-500 disabled:opacity-50 transition">
+                            {generatingBulk ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Zap size={16} />}
+                            {generatingBulk ? 'Generating...' : `Generate for ${MONTHS[bulkPayrollForm.month - 1]} ${bulkPayrollForm.year}`}
+                        </button>
+                    )}
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Employee List */}

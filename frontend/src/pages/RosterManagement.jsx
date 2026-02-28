@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import api from "../utils/api";
 import { useAuth } from "../context/AuthContext";
 import {
-    Calendar, Clock, Users, Plus, ChevronLeft, ChevronRight, Save, Trash2, AlertCircle
+    Calendar, Clock, Users, Plus, ChevronLeft, ChevronRight, Save, Trash2, AlertCircle, Pencil, Check, X
 } from "lucide-react";
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -17,6 +17,7 @@ const RosterManagement = () => {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [showShiftForm, setShowShiftForm] = useState(false);
     const [newShift, setNewShift] = useState({ name: '', startTime: '09:00', endTime: '18:00' });
+    const [editingShift, setEditingShift] = useState(null); // { id, name, startTime, endTime }
     const [assignments, setAssignments] = useState({}); // { `${userId}-${date}`: shiftId }
 
     useEffect(() => { fetchData(); }, [currentMonth]);
@@ -115,6 +116,31 @@ const RosterManagement = () => {
         }
     };
 
+    const saveEditShift = async () => {
+        if (!editingShift) return;
+        try {
+            await api.put(`/roster/shifts/${editingShift.id}`, {
+                name: editingShift.name,
+                startTime: editingShift.startTime,
+                endTime: editingShift.endTime
+            });
+            setEditingShift(null);
+            fetchData();
+        } catch (err) {
+            alert('Failed to update shift: ' + (err.response?.data?.message || err.message));
+        }
+    };
+
+    const deleteShift = async (shiftId, shiftName) => {
+        if (!window.confirm(`Delete shift "${shiftName}"? Existing roster assignments using this shift will be cleared.`)) return;
+        try {
+            await api.delete(`/roster/shifts/${shiftId}`);
+            fetchData();
+        } catch (err) {
+            alert('Failed to delete shift: ' + (err.response?.data?.message || err.message));
+        }
+    };
+
     const prevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
     const nextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
 
@@ -203,13 +229,59 @@ const RosterManagement = () => {
                 </div>
             )}
 
-            {/* Shift Legend */}
+            {/* Shift Legend with Edit/Delete */}
             <div className="flex flex-wrap gap-3">
                 {orderedShifts.map(s => (
-                    <span key={s.id} className={`px-3 py-1 rounded-full text-xs font-medium border ${shiftColors[s.id]}`}>
-                        <Clock className="w-3 h-3 inline mr-1" />
-                        {specialNames.includes(s.name) ? shiftLabel(s) : `${s.name} (${s.startTime}–${s.endTime})`}
-                    </span>
+                    <div key={s.id} className="flex items-center gap-1">
+                        {editingShift?.id === s.id ? (
+                            <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-3 py-1.5">
+                                <input
+                                    value={editingShift.name}
+                                    onChange={e => setEditingShift({ ...editingShift, name: e.target.value })}
+                                    className="w-20 bg-transparent text-white text-xs border-b border-white/30 outline-none"
+                                    placeholder="Name"
+                                />
+                                <input
+                                    type="time"
+                                    value={editingShift.startTime}
+                                    onChange={e => setEditingShift({ ...editingShift, startTime: e.target.value })}
+                                    className="bg-transparent text-white text-xs outline-none w-20"
+                                />
+                                <span className="text-gray-400 text-xs">–</span>
+                                <input
+                                    type="time"
+                                    value={editingShift.endTime}
+                                    onChange={e => setEditingShift({ ...editingShift, endTime: e.target.value })}
+                                    className="bg-transparent text-white text-xs outline-none w-20"
+                                />
+                                <button onClick={saveEditShift} className="text-green-400 hover:text-green-300"><Check className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => setEditingShift(null)} className="text-gray-400 hover:text-white"><X className="w-3.5 h-3.5" /></button>
+                            </div>
+                        ) : (
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${shiftColors[s.id]}`}>
+                                <Clock className="w-3 h-3 inline mr-1" />
+                                {specialNames.includes(s.name) ? shiftLabel(s) : `${s.name} (${s.startTime}–${s.endTime})`}
+                            </span>
+                        )}
+                        {!specialNames.includes(s.name) && editingShift?.id !== s.id && (
+                            <>
+                                <button
+                                    onClick={() => setEditingShift({ id: s.id, name: s.name, startTime: s.startTime, endTime: s.endTime })}
+                                    className="p-1 text-gray-500 hover:text-purple-400 transition-colors"
+                                    title="Edit shift"
+                                >
+                                    <Pencil className="w-3 h-3" />
+                                </button>
+                                <button
+                                    onClick={() => deleteShift(s.id, s.name)}
+                                    className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+                                    title="Delete shift"
+                                >
+                                    <Trash2 className="w-3 h-3" />
+                                </button>
+                            </>
+                        )}
+                    </div>
                 ))}
             </div>
 

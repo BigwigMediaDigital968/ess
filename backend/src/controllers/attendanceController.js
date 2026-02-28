@@ -27,10 +27,62 @@ exports.markAttendance = async (req, res) => {
             return res.status(400).json({ message: 'Already clocked in. Use clock-out endpoint.' });
         }
 
+        let attendanceOfficeId = null;
+        let attendanceAddress = address;
+
         if (type === 'OFFICE') {
-            if (!isWithinOfficeRange(latitude, longitude)) {
-                return res.status(400).json({ message: 'You are not within office range' });
+            // Find user assigned office
+            const dbUser = await prisma.user.findUnique({
+                where: { id: userId },
+                include: { assignedOffice: true }
+            });
+
+            // Get all offices for org
+            const offices = await prisma.office.findMany({
+                where: { organizationId: req.user.organizationId }
+            });
+
+            if (offices.length === 0) {
+                return res.status(400).json({ message: 'No offices defined for this organization. Please contact Admin.' });
             }
+
+            let currentOffice = null;
+            let minDistance = Infinity;
+
+            for (const office of offices) {
+                const distKm = getDistance(latitude, longitude, office.latitude, office.longitude);
+                const allowedKm = (office.radius || 200) / 1000;
+                if (distKm <= allowedKm && distKm < minDistance) {
+                    minDistance = distKm;
+                    currentOffice = office;
+                }
+            }
+
+            if (!currentOffice) {
+                return res.status(400).json({ message: 'You are not within range of any registered office.' });
+            }
+
+            // Verify authorization
+            if (currentOffice.id !== dbUser.assignedOfficeId) {
+                const visitReq = await prisma.officeVisitRequest.findFirst({
+                    where: {
+                        userId,
+                        targetOfficeId: currentOffice.id,
+                        date: today,
+                        status: 'APPROVED'
+                    }
+                });
+
+                if (!visitReq) {
+                    return res.status(403).json({
+                        message: `You are at ${currentOffice.name}, but you are assigned to ${dbUser.assignedOffice?.name || 'another office'}. You need an approved Visit Request.`
+                    });
+                }
+            }
+
+            attendanceOfficeId = currentOffice.id;
+            attendanceAddress = `${currentOffice.name}${currentOffice.address ? ` - ${currentOffice.address}` : ''}`;
+
         } else if (type === 'WFH') {
             const approvedLocation = await prisma.wFHLocation.findFirst({
                 where: { userId, status: 'APPROVED' }
@@ -87,10 +139,11 @@ exports.markAttendance = async (req, res) => {
                 clockIn: new Date(),
                 latitude,
                 longitude,
-                address,
+                address: attendanceAddress,
                 type,
                 status: rosterStatus,
-                date: new Date()
+                date: new Date(),
+                ...(attendanceOfficeId && { officeId: attendanceOfficeId })
             },
         });
 

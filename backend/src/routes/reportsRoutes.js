@@ -17,4 +17,16 @@ router.get('/individual/:userId', protect, authorize('HR', 'ADMIN', 'OWNER', 'DI
 // Monthly summary (annual view)
 router.get('/monthly-summary', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIRECTOR'), reportsController.getMonthlySummary);
 
+// PDF Export - generates a branded PDF for any report type
+router.get('/export-pdf', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIRECTOR'), reportsController.exportReportPDF);
+
+// Asset report
+router.get('/assets', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIRECTOR'), reportsController.getAssetsReport);
+
+// Leave report
+router.get('/leaves', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIRECTOR'), reportsController.getLeavesReport);
+
+// Service Desk report
+router.get('/servicedesk', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIRECTOR', 'SD_ADMIN', 'SD_MANAGER'), reportsController.getServiceDeskReport);
+
 module.exports = router;

@@ -9,10 +9,12 @@ exports.onboardEmployee = async (req, res) => {
             firstName, lastName, email, password,
             dob, bloodGroup, personalEmail,
             presentAddress, permanentAddress, latitude, longitude,
-            roleId, designation, departmentId, managerId,
+            roleId, designation, departmentId, managerId, assignedOfficeId,
             skills, // JSON string
             certifications, // JSON string
-            workExperience // JSON string
+            workExperience, // JSON string
+            // Bank & Tax (Step 6)
+            panNumber, ufn, bankName, bankAccountNumber, ifscCode,
         } = req.body;
 
         const name = `${firstName} ${lastName}`;
@@ -31,12 +33,28 @@ exports.onboardEmployee = async (req, res) => {
             profilePictureUrl = `/uploads/profiles/${req.files['profilePic'][0].filename}`;
         }
 
-        // Get Organization (assuming single org or passed in headers/token, but for now take first or from admin)
-        // Since admin is creating, use admin's org or req.user.organizationId
+        // Get Organization 
         const organizationId = req.user.organizationId;
+
+        // Auto-generate sequential Employee ID (B00001, B00002, ...)
+        const lastUser = await prisma.user.findFirst({
+            where: { employeeId: { startsWith: 'B' } },
+            orderBy: { createdAt: 'desc' },
+            select: { employeeId: true }
+        });
+
+        let nextIdNum = 1;
+        if (lastUser && lastUser.employeeId) {
+            const numericPart = parseInt(lastUser.employeeId.substring(1), 10);
+            if (!isNaN(numericPart)) {
+                nextIdNum = numericPart + 1;
+            }
+        }
+        const generatedEmployeeId = `B${String(nextIdNum).padStart(5, '0')}`;
 
         const user = await prisma.user.create({
             data: {
+                employeeId: generatedEmployeeId,
                 name,
                 email,
                 password: hashedPassword,
@@ -51,9 +69,17 @@ exports.onboardEmployee = async (req, res) => {
                 designation,
                 departmentId: departmentId || null,
                 managerId: managerId || null,
+                assignedOfficeId: assignedOfficeId || null,
                 organizationId,
                 profilePictureUrl,
-                LegacyRole: 'EMPLOYEE' // Default
+                LegacyRole: 'EMPLOYEE', // Default
+                // Bank & Tax fields
+                panNumber: panNumber || null,
+                ufn: ufn || null,
+                bankName: bankName || null,
+                bankAccountNumber: bankAccountNumber || null,
+                ifscCode: ifscCode || null,
+                taxRegime: 'NEW', // Always enforce new regime
             }
         });
 

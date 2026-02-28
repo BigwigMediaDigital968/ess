@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
+import { API_URL } from "../utils/config";
 
 const Login = () => {
     const [email, setEmail] = useState("");
@@ -14,6 +16,13 @@ const Login = () => {
     const [isLoggingIn, setIsLoggingIn] = useState(false);
     const [loginSuccess, setLoginSuccess] = useState(false);
 
+    // Password Change State
+    const [requiresChange, setRequiresChange] = useState(false);
+    const [changeToken, setChangeToken] = useState("");
+    const [changeMessage, setChangeMessage] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmNewPassword, setConfirmNewPassword] = useState("");
+
     const { branding, logoSrc, orgName, loginBgSrc, loginBgType } = useTheme();
     const primary = branding?.primaryColor || '#a855f7';
     const accent = branding?.accentColor || '#ec4899';
@@ -23,11 +32,59 @@ const Login = () => {
         setIsLoggingIn(true);
         setError("");
         try {
-            await login(email, password, selectedRole);
+            const data = await login(email, password, selectedRole);
+            setIsLoggingIn(false);
+            if (data?.requiresPasswordChange) {
+                setRequiresChange(true);
+                setChangeToken(data.token);
+                setChangeMessage(data.message);
+                return;
+            }
             setLoginSuccess(true);
             setTimeout(() => navigate("/"), 700);
         } catch (err) {
             setError(err.response?.data?.message || "Login failed");
+            setIsLoggingIn(false);
+        }
+    };
+
+    const handleChangePasswordSubmit = async (e) => {
+        e.preventDefault();
+        setError("");
+
+        if (newPassword !== confirmNewPassword) {
+            setError("Passwords do not match");
+            return;
+        }
+        if (newPassword.length < 6) {
+            setError("Password must be at least 6 characters long");
+            return;
+        }
+
+        setIsLoggingIn(true);
+        try {
+            await axios.post(
+                `${API_URL}/auth/change-password`,
+                { oldPassword: password, newPassword },
+                { headers: { Authorization: `Bearer ${changeToken}` } }
+            );
+
+            // Password changed successfully, log the user in normally now
+            const data = await login(email, newPassword, selectedRole);
+            // Verify there is no recurring requirement (there shouldn't be)
+            if (data?.requiresPasswordChange) {
+                setError("Unexpected state: password change loop detected");
+                setIsLoggingIn(false);
+                return;
+            }
+
+            setIsLoggingIn(false);
+            setRequiresChange(false);
+            setLoginSuccess(true);
+            setTimeout(() => navigate("/"), 700);
+        } catch (err) {
+            console.error("Change password error:", err);
+            setError(err.response?.data?.message || "Password change failed");
             setIsLoggingIn(false);
         }
     };
@@ -89,7 +146,7 @@ const Login = () => {
 
             {/* Login Card */}
             <AnimatePresence>
-                {!loginSuccess && (
+                {!requiresChange && !loginSuccess && (
                     <motion.div
                         key="login-card"
                         initial={{ opacity: 0, y: 30, scale: 0.95 }}
@@ -113,7 +170,7 @@ const Login = () => {
                                 {orgName}
                             </h1>
                             <p className="text-gray-300 mt-2 text-sm font-medium tracking-wide uppercase opacity-80">
-                                Employee Self Service
+                                Bigwig Media Digital
                             </p>
                         </motion.div>
 
@@ -176,6 +233,79 @@ const Login = () => {
                                         Signing In...
                                     </span>
                                 ) : "Sign In"}
+                            </motion.button>
+
+                            <motion.div
+                                className="text-center mt-4"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: 0.7 }}
+                            >
+                                <Link to="/forgot-password" style={{ color: primary }} className="text-sm font-medium hover:text-white transition-colors duration-200">
+                                    Forgot Password?
+                                </Link>
+                            </motion.div>
+                        </form>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Change Password Modal */}
+            <AnimatePresence>
+                {requiresChange && !loginSuccess && (
+                    <motion.div
+                        key="change-password-card"
+                        initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -40, scale: 1.05 }}
+                        transition={{ duration: 0.5, ease: "easeInOut" }}
+                        className="relative z-10 w-full max-w-md p-8 bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 shadow-2xl"
+                    >
+                        <motion.div className="text-center mb-6" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                            <h2 className="text-2xl font-bold text-white tracking-tight">Update Password Required</h2>
+                            <p className="text-gray-300 mt-2 text-sm">{changeMessage}</p>
+                        </motion.div>
+
+                        <AnimatePresence>
+                            {error && (
+                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                                    className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-200 text-sm text-center">
+                                    {error}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        <form onSubmit={handleChangePasswordSubmit} className="space-y-5">
+                            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">New Password</label>
+                                <input type="password" value={newPassword}
+                                    onChange={e => setNewPassword(e.target.value)}
+                                    className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 text-white placeholder-gray-600 transition-all"
+                                    style={{ '--tw-ring-color': primary }}
+                                    placeholder="••••••••" required />
+                            </motion.div>
+
+                            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">Confirm New Password</label>
+                                <input type="password" value={confirmNewPassword}
+                                    onChange={e => setConfirmNewPassword(e.target.value)}
+                                    className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 text-white placeholder-gray-600 transition-all"
+                                    style={{ '--tw-ring-color': primary }}
+                                    placeholder="••••••••" required />
+                            </motion.div>
+
+                            <motion.button
+                                whileHover={{ scale: 1.02, boxShadow: `0 0 30px ${primary}80` }}
+                                whileTap={{ scale: 0.97 }}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.2 }}
+                                type="submit"
+                                disabled={isLoggingIn}
+                                className="w-full py-3 px-4 rounded-xl font-bold text-white shadow-lg transition-all relative overflow-hidden"
+                                style={{ background: `linear-gradient(135deg, ${primary}, ${accent})` }}
+                            >
+                                {isLoggingIn ? "Updating..." : "Update Password & Sign In"}
                             </motion.button>
                         </form>
                     </motion.div>

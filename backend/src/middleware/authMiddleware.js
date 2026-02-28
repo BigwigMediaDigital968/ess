@@ -5,10 +5,7 @@ const prisma = new PrismaClient();
 const protect = async (req, res, next) => {
     let token;
 
-    if (
-        req.headers.authorization &&
-        req.headers.authorization.startsWith('Bearer')
-    ) {
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         try {
             token = req.headers.authorization.split(' ')[1];
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -20,9 +17,14 @@ const protect = async (req, res, next) => {
                     email: true,
                     LegacyRole: true,
                     role: { select: { name: true, type: true } },
-                    organizationId: true
+                    organizationId: true,
+                    organization: { select: { ownerId: true } }
                 }
             });
+            // Compute isOwner once here so all controllers can use req.user.isOwner
+            if (req.user) {
+                req.user.isOwner = req.user.organization?.ownerId === req.user.id;
+            }
 
             next();
         } catch (error) {
@@ -36,39 +38,57 @@ const protect = async (req, res, next) => {
     }
 };
 
+// Privileged roles (Owner = Admin)
+const PRIVILEGED = ['ADMIN', 'OWNER', 'HR', 'DIRECTOR'];
+
 const admin = (req, res, next) => {
-    // Also allow HR to access Admin Panel features
-    if (req.user && (
-        req.user.LegacyRole === 'ADMIN' ||
-        req.user.LegacyRole === 'HR' ||
-        req.user.role?.name === 'Admin' ||
-        req.user.role?.name === 'HR'
-    )) {
+    const legacy = req.user?.LegacyRole;
+    const roleName = req.user?.role?.name;
+    const roleType = req.user?.role?.type;
+
+    if (
+        PRIVILEGED.includes(legacy) ||
+        roleName === 'Owner' ||
+        roleName === 'Admin' ||
+        roleName === 'HR' ||
+        roleName === 'Director' ||
+        roleType === 'ADMINISTRATOR' ||
+        roleType === 'EXECUTIVE'
+    ) {
         next();
     } else {
-        res.status(401).json({ message: 'Not authorized as an admin/HR' });
+        res.status(401).json({ message: 'Not authorized as admin/HR/Owner' });
     }
 };
 
 const authorize = (...roles) => {
     return (req, res, next) => {
-        // Check LegacyRole or Dynamic Role Name
-        const userLegacy = req.user.LegacyRole;
-        const userDynamic = req.user.role?.name?.toUpperCase(); // e.g. "HR" -> "HR"
-        const userDynamicType = req.user.role?.type; // e.g. "ADMINISTRATOR", "LEADERSHIP"
+        const userLegacy = req.user?.LegacyRole;
+        const userDynamic = req.user?.role?.name?.toUpperCase();
+        const userDynType = req.user?.role?.type;
 
-        const isAdmin = userDynamicType === 'ADMINISTRATOR' && roles.includes('ADMIN');
-        // LEADERSHIP (Director) and EXECUTIVE map to DIRECTOR role in authorize calls
-        const isDirector = ['LEADERSHIP', 'EXECUTIVE'].includes(userDynamicType) && roles.includes('DIRECTOR');
+        // OWNER is always treated as ADMIN
+        const effectiveLegacy = userLegacy === 'OWNER' ? 'ADMIN' : userLegacy;
 
-        if (roles.includes(userLegacy) ||
-            (userDynamic && roles.includes(userDynamic)) ||
+        const wantsAdmin = roles.includes('ADMIN') || roles.includes('OWNER');
+        const wantsDirector = roles.includes('DIRECTOR');
+
+        const isAdmin = (userDynType === 'ADMINISTRATOR') && wantsAdmin;
+        const isDirector = (['LEADERSHIP', 'EXECUTIVE'].includes(userDynType)) && wantsDirector;
+        const isOwner = userLegacy === 'OWNER' && wantsAdmin;
+        const isDynMatch = userDynamic && roles.map(r => r.toUpperCase()).includes(userDynamic);
+
+        if (
+            roles.includes(userLegacy) ||
+            roles.includes(effectiveLegacy) ||
+            isDynMatch ||
             isAdmin ||
-            isDirector
+            isDirector ||
+            isOwner
         ) {
             next();
         } else {
-            res.status(403).json({ message: `User role ${userLegacy} is not authorized` });
+            res.status(403).json({ message: `Role ${userLegacy} is not authorized` });
         }
     };
 };

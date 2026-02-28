@@ -4,26 +4,32 @@ import { useOutletContext } from "react-router-dom";
 import RoleManagement from "../components/admin/RoleManagement";
 import OrganizationSettings from "../components/admin/OrganizationSettings";
 import EmployeeManagement from "../components/admin/EmployeeManagement";
+import DepartmentManagement from "../components/admin/DepartmentManagement";
 
 const Admin = () => {
     const { user, api } = useAuth();
-    const { fetchOrg } = useOutletContext() || {}; // Safer destructuring
+    const { fetchOrg } = useOutletContext() || {};
     const [activeTab, setActiveTab] = useState("employees");
-    const [isOwner, setIsOwner] = useState(false);
+    const [isAdminUser, setIsAdminUser] = useState(false);
     const [canAccessSettings, setCanAccessSettings] = useState(false);
 
     useEffect(() => {
         const checkAccess = async () => {
             try {
+                // isAdminUser: LegacyRole ADMIN or dynamic role type ADMINISTRATOR
+                const legacyIsAdmin = user?.LegacyRole === 'ADMIN';
+                const dynamicIsAdmin = user?.role?.type === 'ADMINISTRATOR';
+                const adminUser = legacyIsAdmin || dynamicIsAdmin;
+                setIsAdminUser(adminUser);
+
                 const res = await api.get("/organization");
                 if (res.data) {
                     const ownerMatch = res.data.ownerId === user?.id;
-                    setIsOwner(ownerMatch);
-
                     const isHR = user?.LegacyRole === 'HR' || user?.role?.name === 'HR';
                     const isDirector = user?.role?.name === 'Director';
 
-                    if (ownerMatch || (isHR && res.data.configHrAccess) || (isDirector && res.data.configDirectorAccess)) {
+                    // Can access org settings if owner, or HR/Director with config flags, or any admin
+                    if (adminUser || ownerMatch || (isHR && res.data.configHrAccess) || (isDirector && res.data.configDirectorAccess)) {
                         setCanAccessSettings(true);
                     }
                 }
@@ -54,12 +60,22 @@ const Admin = () => {
                 >
                     Roles & Bands
                 </button>
+                {/* Departments: visible to any admin-type user */}
+                {isAdminUser && (
+                    <button
+                        onClick={() => setActiveTab("departments")}
+                        className={`px-4 py-2 rounded-t-lg transition ${activeTab === "departments" ? "bg-white/10 text-white font-bold" : "text-white/60 hover:text-white"}`}
+                    >
+                        Departments
+                    </button>
+                )}
+                {/* Org Settings: gated to owner / HR with config / Director with config */}
                 {canAccessSettings && (
                     <button
                         onClick={() => setActiveTab("settings")}
                         className={`px-4 py-2 rounded-t-lg transition ${activeTab === "settings" ? "bg-white/10 text-white font-bold" : "text-white/60 hover:text-white"}`}
                     >
-                        Organization & Settings
+                        Organization &amp; Settings
                     </button>
                 )}
             </div>
@@ -67,6 +83,7 @@ const Admin = () => {
             <div className="mt-6">
                 {activeTab === "employees" && <EmployeeManagement />}
                 {activeTab === "roles" && <RoleManagement />}
+                {activeTab === "departments" && isAdminUser && <DepartmentManagement />}
                 {activeTab === "settings" && canAccessSettings && <OrganizationSettings onUpdate={fetchOrg} />}
             </div>
         </div>

@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { API_BASE_URL } from "../../utils/config";
 import { useAuth } from "../../context/AuthContext";
-import { X, Upload, FileText, User, Check, IdCard, Briefcase, UserPen, LogOut, RotateCcw } from "lucide-react";
+import { X, Upload, FileText, User, Check, IdCard, Briefcase, UserPen, LogOut, RotateCcw, Trash2 } from "lucide-react";
 import VirtualIDCard from "../VirtualIDCard";
 
-const EmployeeActionModal = ({ employee, onClose, onUpdate, roles, potentialManagers, departments }) => {
-    const { api } = useAuth();
+const EmployeeActionModal = ({ employee, onClose, onUpdate, roles, bands, potentialManagers, departments }) => {
+    const { api, user: currentUser } = useAuth();
     const [activeTab, setActiveTab] = useState("profile"); // profile, docs, idcard
     const [loading, setLoading] = useState(false);
     const [orgData, setOrgData] = useState(null);
@@ -16,6 +16,7 @@ const EmployeeActionModal = ({ employee, onClose, onUpdate, roles, potentialMana
         email: employee.email,
         designation: employee.designation,
         roleId: employee.roleId,
+        bandId: employee.bandId || "",
         departmentId: employee.departmentId || "",
         managerId: employee.managerId || "",
         skills: employee.skills ? employee.skills.join(", ") : "",
@@ -70,6 +71,7 @@ const EmployeeActionModal = ({ employee, onClose, onUpdate, roles, potentialMana
                 email: formData.email,
                 designation: formData.designation,
                 roleId: formData.roleId,
+                bandId: formData.bandId || null,
                 departmentId: formData.departmentId || null,
                 managerId: formData.managerId || null,
                 skills: formData.skills,
@@ -111,6 +113,31 @@ const EmployeeActionModal = ({ employee, onClose, onUpdate, roles, potentialMana
         }
     };
 
+    // Permanently delete employee — allowed for: Owner, Admin (legacy or dynamic), HR, Co-Founder
+    const canDelete =
+        currentUser?.isOwner === true ||
+        currentUser?.LegacyRole === 'ADMIN' ||
+        currentUser?.LegacyRole === 'HR' ||
+        currentUser?.role?.type === 'ADMINISTRATOR' ||
+        currentUser?.role?.type === 'OWNER' ||
+        currentUser?.role?.name === 'HR' ||
+        currentUser?.role?.name === 'Admin' ||
+        currentUser?.role?.name === 'Co-Founder';
+
+    const handlePermanentDelete = async () => {
+        const confirmed = window.confirm(
+            `⚠️ PERMANENTLY DELETE "${employee.name}"?\n\nThis will completely remove this user and all their data from the system.\n\nThis action CANNOT be undone. Type OK to confirm.`
+        );
+        if (!confirmed) return;
+        try {
+            await api.delete(`/employees/${employee.id}`);
+            onUpdate();
+            onClose();
+        } catch (err) {
+            alert('Failed to delete employee: ' + (err.response?.data?.message || err.message));
+        }
+    };
+
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
             <div className="bg-gray-900 border border-white/20 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]">
@@ -126,7 +153,7 @@ const EmployeeActionModal = ({ employee, onClose, onUpdate, roles, potentialMana
                             />
                             <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-4 border-gray-900" style={{ backgroundColor: employee.isActive !== false ? '#22c55e' : '#ef4444' }}></div>
                         </div>
-                        <div>
+                        <div className="flex-1">
                             <h2 className="text-3xl font-bold text-white flex items-center gap-3">
                                 {employee.name}
                                 {employee.isActive === false && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded-full font-medium">OFF-BOARDED</span>}
@@ -135,6 +162,15 @@ const EmployeeActionModal = ({ employee, onClose, onUpdate, roles, potentialMana
                                 <Briefcase size={16} /> {employee.designation || "No Designation"}
                             </p>
                         </div>
+                        {canDelete && (
+                            <button
+                                onClick={handlePermanentDelete}
+                                className="flex items-center gap-2 px-4 py-2 bg-red-500/20 border border-red-500/40 text-red-400 rounded-xl hover:bg-red-500/30 hover:text-red-300 transition-all text-sm font-semibold"
+                                title="Permanently delete this user"
+                            >
+                                <Trash2 size={16} /> Delete User
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -211,6 +247,19 @@ const EmployeeActionModal = ({ employee, onClose, onUpdate, roles, potentialMana
                                             onChange={e => setFormData({ ...formData, designation: e.target.value })}
                                             className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:border-purple-500 outline-none mt-1"
                                         />
+                                    </div>
+                                    <div>
+                                        <label className="text-gray-400 text-xs uppercase font-bold tracking-wider">Band / Level</label>
+                                        <select
+                                            value={formData.bandId}
+                                            onChange={e => setFormData({ ...formData, bandId: e.target.value })}
+                                            className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:border-purple-500 outline-none mt-1"
+                                        >
+                                            <option value="" className="text-black">Select Band...</option>
+                                            {bands && bands.map(b => (
+                                                <option key={b.id} value={b.id} className="text-black">{b.name}</option>
+                                            ))}
+                                        </select>
                                     </div>
                                     <div>
                                         <label className="text-gray-400 text-xs uppercase font-bold tracking-wider">Department</label>
@@ -411,6 +460,30 @@ const EmployeeActionModal = ({ employee, onClose, onUpdate, roles, potentialMana
                             )}
                         </div>
                     )}
+
+                    {/* Permanent Delete — always visible at bottom */}
+                    <div className="mt-6 border-t border-red-900/30 pt-6">
+                        <div className="bg-red-950/30 border border-red-700/30 rounded-xl p-4">
+                            <h4 className="text-red-400 font-bold text-sm mb-1 flex items-center gap-2"><Trash2 size={16} /> Permanently Delete User</h4>
+                            <p className="text-gray-500 text-xs mb-3">This will permanently remove the employee and ALL their records (attendance, leaves, payroll). This action CANNOT be undone.</p>
+                            <button
+                                onClick={async () => {
+                                    if (!confirm(`⚠️ PERMANENT DELETE\n\nAre you absolutely sure you want to permanently delete "${employee.name}"?\n\nThis will remove their account, attendance, leaves, documents and all related data FOREVER.`)) return;
+                                    try {
+                                        await api.delete(`/employees/${employee.id}`);
+                                        alert(`${employee.name} has been permanently deleted.`);
+                                        onUpdate();
+                                        onClose();
+                                    } catch (err) {
+                                        alert(err.response?.data?.message || 'Delete failed');
+                                    }
+                                }}
+                                className="px-6 py-2 bg-red-800 hover:bg-red-700 text-white rounded-lg font-bold text-sm transition flex items-center gap-2"
+                            >
+                                <Trash2 size={16} /> Permanently Delete
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

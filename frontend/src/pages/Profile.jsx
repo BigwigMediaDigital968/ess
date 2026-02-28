@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { API_BASE_URL } from "../utils/config";
 import { useAuth } from "../context/AuthContext";
 import VirtualIDCard from "../components/VirtualIDCard";
-import { User, Mail, Briefcase, MapPin, Droplet, Camera, Upload } from "lucide-react";
+import { User, Mail, Briefcase, MapPin, Droplet, Camera, Upload, Award } from "lucide-react";
 
 const Profile = () => {
     const { user, api, login } = useAuth(); // Need login (or a way to refresh user)
@@ -67,6 +67,7 @@ const Profile = () => {
                                     src={`${API_BASE_URL}${orgData.logoUrl}`}
                                     alt="Org Logo"
                                     className="w-24 h-24 object-contain"
+                                    onError={e => { e.target.style.display = 'none'; }}
                                 />
                             </div>
                         )}
@@ -142,6 +143,31 @@ const Profile = () => {
                     </h3>
                     <VirtualIDCard user={user} organization={orgData} />
                 </div>
+
+                {user.certifications && user.certifications.length > 0 && (
+                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl w-full">
+                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                            <Award className="text-yellow-400" size={20} /> Certifications
+                        </h3>
+                        <div className="flex flex-wrap gap-4">
+                            {user.certifications.map((cert) => (
+                                <div key={cert.id} className="flex items-center gap-3 bg-white/10 p-3 rounded-xl border border-white/5 hover:bg-white/20 transition-colors" title={cert.name}>
+                                    {cert.imageUrl ? (
+                                        <img src={`${API_BASE_URL}${cert.imageUrl}`} alt={cert.name} className="w-10 h-10 object-contain" />
+                                    ) : (
+                                        <div className="w-10 h-10 bg-yellow-500/20 text-yellow-400 rounded-full flex items-center justify-center">
+                                            <Award size={20} />
+                                        </div>
+                                    )}
+                                    <div>
+                                        <p className="text-white font-medium text-sm">{cert.name}</p>
+                                        <p className="text-gray-400 text-xs">{cert.issuingOrg}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

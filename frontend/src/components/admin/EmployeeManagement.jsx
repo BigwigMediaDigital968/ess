@@ -10,15 +10,10 @@ const EmployeeManagement = () => {
     const [employees, setEmployees] = useState([]);
     const [roles, setRoles] = useState([]);
     const [departments, setDepartments] = useState([]);
+    const [bands, setBands] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
 
-    // Form Stats
-    const [formData, setFormData] = useState({
-        name: "", email: "", password: "", roleId: "", bandId: "", designation: "", departmentId: "", managerId: ""
-    });
-
-    // Extended Actions Modal
     const [selectedEmployee, setSelectedEmployee] = useState(null);
 
     useEffect(() => {
@@ -32,30 +27,19 @@ const EmployeeManagement = () => {
             // Fetch individually or use allSettled to prevent one failure from blocking others
             const empRes = await api.get("/employees").catch(e => { console.error("Emp fetch failed", e); return { data: [] }; });
             const rolesRes = await api.get("/roles").catch(e => { console.error("Roles fetch failed", e); return { data: [] }; });
-            // This endpoint was 404ing, causing the whole Promise.all to reject
-            const deptRes = await api.get("/organization/departments").catch(e => { console.error("Dept fetch failed", e); return { data: [] }; });
+            const deptRes = await api.get("/employees/departments").catch(e => { console.error("Dept fetch failed", e); return { data: [] }; });
+            const bandsRes = await api.get("/roles/bands").catch(e => { console.error("Bands fetch failed", e); return { data: [] }; });
 
             console.log("Employees Data:", empRes.data);
 
             setEmployees(empRes.data || []);
             setRoles(rolesRes.data || []);
             setDepartments(deptRes.data || []);
+            setBands(bandsRes.data || []);
         } catch (err) {
             console.error("Critical failure in fetchData", err);
         } finally {
             setLoading(false);
-        }
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            await api.post("/employees", formData);
-            alert("Employee created successfully!");
-            setFormData({ name: "", email: "", password: "", roleId: "", bandId: "", designation: "", departmentId: "", managerId: "" });
-            fetchData(); // Refresh list
-        } catch (err) {
-            alert("Failed to create employee");
         }
     };
 
@@ -69,80 +53,13 @@ const EmployeeManagement = () => {
 
     return (
         <div className="space-y-8">
-            {/* Add Employee Form */}
-            <div className="bg-black/40 backdrop-blur-xl border border-white/10 p-6 rounded-2xl shadow-xl">
-                <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><UserPlus className="text-purple-400" /> Add New Employee</h3>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <input
-                            placeholder="Name"
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            className="bg-black/20 border border-white/10 rounded-xl p-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
-                            required
-                        />
-                        <input
-                            placeholder="Email"
-                            type="email"
-                            value={formData.email}
-                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                            className="bg-black/20 border border-white/10 rounded-xl p-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
-                            required
-                        />
-                        <input
-                            placeholder="Password"
-                            type="password"
-                            value={formData.password}
-                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                            className="bg-black/20 border border-white/10 rounded-xl p-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
-                            required
-                        />
-                        <input
-                            placeholder="Designation"
-                            value={formData.designation}
-                            onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
-                            className="bg-black/20 border border-white/10 rounded-xl p-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
-                        />
-
-                        <select
-                            value={formData.roleId}
-                            onChange={(e) => setFormData({ ...formData, roleId: e.target.value })}
-                            className="bg-black/20 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-purple-500 transition-colors"
-                            required
-                        >
-                            <option value="" className="bg-gray-900 text-gray-400">Select Role</option>
-                            {roles.map(r => <option key={r.id} value={r.id} className="bg-gray-900">{r.name}</option>)}
-                        </select>
-
-                        <select
-                            value={formData.managerId}
-                            onChange={(e) => setFormData({ ...formData, managerId: e.target.value })}
-                            className="bg-black/20 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-purple-500 transition-colors"
-                        >
-                            <option value="" className="bg-gray-900 text-gray-400">Select Manager (Optional)</option>
-                            {employees.map(e => <option key={e.id} value={e.id} className="bg-gray-900">{e.name} ({e.designation})</option>)}
-                        </select>
-
-                        <select
-                            value={formData.departmentId}
-                            onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
-                            className="bg-black/20 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-purple-500 transition-colors"
-                        >
-                            <option value="" className="bg-gray-900 text-gray-400">Select Department (Optional)</option>
-                            {departments.map(d => <option key={d.id} value={d.id} className="bg-gray-900">{d.name}</option>)}
-                        </select>
-                    </div>
-                    <div className="flex justify-end mt-4">
-                        <button type="submit" className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl text-white font-bold hover:shadow-lg hover:shadow-purple-500/30 transition-all transform hover:scale-105">Create User</button>
-                    </div>
-                </form>
-            </div>
 
             {/* Extended Actions Modal */}
             {selectedEmployee && (
                 <EmployeeActionModal
                     employee={selectedEmployee}
                     roles={roles}
+                    bands={bands}
                     departments={departments}
                     potentialManagers={employees}
                     onClose={() => setSelectedEmployee(null)}

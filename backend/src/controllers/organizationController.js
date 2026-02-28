@@ -64,7 +64,9 @@ exports.getPublicOrganization = async (req, res) => {
             select: {
                 name: true, logoUrl: true,
                 primaryColor: true, accentColor: true,
-                themeMode: true, loginBgUrl: true, loginBgType: true
+                themeMode: true, loginBgUrl: true, loginBgType: true,
+                address: true, latitude: true, longitude: true,
+                contactEmail: true, website: true, gstNumber: true
             }
         });
         res.json(org || {});
@@ -84,6 +86,19 @@ exports.getDepartments = async (req, res) => {
     }
 };
 
+exports.getBands = async (req, res) => {
+    try {
+        const orgId = req.user.organizationId;
+        const bands = await prisma.band.findMany({
+            where: { organizationId: orgId },
+            orderBy: { level: 'asc' }
+        });
+        res.json(bands);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
 exports.updateOrganization = async (req, res) => {
     upload(req, res, async function (err) {
         if (err) {
@@ -92,12 +107,13 @@ exports.updateOrganization = async (req, res) => {
 
         try {
             const { name, address, latitude, longitude, casualLeaves, earnedLeaves, configHrAccess, configDirectorAccess } = req.body;
-            let updateData = {
-                name,
-                address,
-                latitude: latitude ? parseFloat(latitude) : undefined,
-                longitude: longitude ? parseFloat(longitude) : undefined
-            };
+            // Only set fields that are explicitly provided — prevents BrandingSettings (which never sends name/address)
+            // from inadvertently wiping those fields in the database.
+            let updateData = {};
+            if (name !== undefined && name !== '') updateData.name = name;
+            if (address !== undefined && address !== '') updateData.address = address;
+            if (latitude) updateData.latitude = parseFloat(latitude);
+            if (longitude) updateData.longitude = parseFloat(longitude);
 
             if (req.file) {
                 updateData.logoUrl = `/uploads/logos/${req.file.filename}`;
@@ -110,6 +126,12 @@ exports.updateOrganization = async (req, res) => {
             if (themeMode && ['light', 'dark', 'system'].includes(themeMode)) updateData.themeMode = themeMode;
             if (loginBgType && ['gradient', 'image', 'video'].includes(loginBgType)) updateData.loginBgType = loginBgType;
 
+            // ── New org info fields ──
+            const { contactEmail, gstNumber, website } = req.body;
+            if (contactEmail !== undefined) updateData.contactEmail = contactEmail || null;
+            if (gstNumber !== undefined) updateData.gstNumber = gstNumber || null;
+            if (website !== undefined) updateData.website = website || null;
+
             const organizationId = req.user.organizationId;
             if (!organizationId) {
                 return res.status(400).json({ message: "User is not linked to an organization" });
@@ -117,17 +139,20 @@ exports.updateOrganization = async (req, res) => {
 
             const currentOrg = await prisma.organization.findUnique({ where: { id: organizationId } });
 
-            // Access Control Logic
+            // ── Access Control ──
+            // Allow: org owner, any ADMIN LegacyRole, any ADMINISTRATOR role type, HR with flag, Director with flag, Co-Founder
             const isOwner = currentOrg.ownerId === req.user.id;
+            const isAdminLegacy = req.user.LegacyRole === 'ADMIN';
+            const isAdminType = req.user.role?.type === 'ADMINISTRATOR';
+            const isCoFounder = req.user.role?.name === 'Co-Founder' || req.user.role?.name === 'Owner' || req.user.role?.name === 'Admin';
             const isHR = req.user.LegacyRole === 'HR' || req.user.role?.name === 'HR';
-            const isDirector = req.user.role?.name === 'Director'; // Adjust based on exact role name
+            const isDirector = req.user.role?.name === 'Director';
 
             let isAuthorized = false;
 
-            if (isOwner) {
+            if (isOwner || isAdminLegacy || isAdminType || isCoFounder) {
                 isAuthorized = true;
-                // Owner can update config flags
-                // Form-data sends booleans as strings "true" or "false"
+                // Admins/Owners can update config flags
                 if (configHrAccess !== undefined) {
                     updateData.configHrAccess = String(configHrAccess) === 'true';
                 }

@@ -104,6 +104,12 @@ model User {
   address           String?      // Keep for backward compatibility or map to presentAddress
   skills            String[]     // Keep for backward compatibility
   isActive          Boolean      @default(true)
+  mustChangePassword Boolean     @default(true)
+  passwordLastChangedAt DateTime @default(now())
+  resetPasswordToken String?
+  resetPasswordExpires DateTime?
+
+  problemActivities ProblemActivity[]
 
   // Off-boarding fields
   exitDate          DateTime?
@@ -156,6 +162,34 @@ model User {
   goalsSetByMe          AppraisalGoal[]    @relation("ManagerGoals")
   appraisalReviews      AppraisalReview[]  @relation("EmployeeReviews2")
   managedReviews        AppraisalReview[]  @relation("ManagerReviews2")
+
+  // Change Management Relations
+  implementedChanges    ChangeRequest[]    @relation("ChangeImplementer")
+  changeApprovals       ChangeApproval[]
+
+  // Asset Relations
+  assets                Asset[]
+
+  // Multi-Office Relations
+  assignedOfficeId      String?
+  assignedOffice        Office?            @relation(fields: [assignedOfficeId], references: [id])
+  officeVisitRequests   OfficeVisitRequest[]
+  managedOfficeVisits   OfficeVisitRequest[] @relation("ManagerApprovals")
+
+  // Indian Payroll & Tax Compliance
+  panNumber             String?   // PAN number e.g. ABCDE1234F
+  ufn                   String?   // Unique File Number (Tax filings)
+  bankName              String?
+  bankAccountNumber     String?
+  ifscCode              String?
+  taxRegime             String?   @default("NEW") // NEW or OLD
+
+  // Offboarding
+  offboardingRequest    OffboardingRequest?
+
+  // Service Desk Relations
+  ticketsRaised         Ticket[]           @relation("TicketRequester")
+  ticketsAssigned       Ticket[]           @relation("TicketAssignee")
 }
 
 
@@ -170,7 +204,9 @@ model Organization {
   id          String   @id @default(uuid())
   name        String
   address     String?
-  website     String?  // New field
+  website     String?  // Website URL
+  contactEmail String? // Organization contact email
+  gstNumber   String?  // GST registration number
   latitude    Float?
   longitude   Float?
   ownerId     String?  @unique // Ideally links to a User who is the Owner
@@ -185,7 +221,10 @@ model Organization {
   users       User[]
   roles       Role[]
   bands       Band[]
+  departments Department[]
   holidays    Holiday[]
+  assets      Asset[]
+  offices     Office[]
 
   leavePolicy LeavePolicy?
   createdAt   DateTime @default(now())
@@ -241,12 +280,55 @@ model Holiday {
 }
 
 model Department {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  users     User[]
-  jobPostings JobPosting[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String         @id @default(uuid())
+  name           String
+  description    String?
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  users          User[]
+  jobPostings    JobPosting[]
+  
+  // Change Management Relations
+  changeRequests ChangeRequest[] @relation("ChangeGroup")
+  problemGroups    Problem[]            @relation("ProblemAssignmentGroup")
+  
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([name, organizationId])
+}
+
+model Office {
+  id             String       @id @default(uuid())
+  address        String?
+  latitude       Float
+  longitude      Float
+  radius         Float        @default(200) // acceptable check-in radius in meters
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  
+  users               User[]
+  assets              Asset[]
+  attendances         Attendance[]
+  officeVisitRequests OfficeVisitRequest[]  @relation("TargetOffice")
+  
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model OfficeVisitRequest {
+  id             String        @id @default(uuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  targetOfficeId String
+  targetOffice   Office        @relation("TargetOffice", fields: [targetOfficeId], references: [id])
+  date           DateTime      @db.Date
+  status         RequestStatus @default(PENDING)
+  managerId      String?
+  manager        User?         @relation("ManagerApprovals", fields: [managerId], references: [id])
+  
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 }
 
 model Attendance {
@@ -261,6 +343,8 @@ model Attendance {
   address   String?
   userId    String
   user      User     @relation(fields: [userId], references: [id])
+  officeId  String?
+  office    Office?  @relation(fields: [officeId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -396,6 +480,9 @@ model SalaryStructure {
   medicalAllowance Float    @default(0)
   specialAllowance Float    @default(0)
   bonus            Float    @default(0)
+  
+  // CTC (source of truth)
+  ctcAnnual        Float?   // Annual CTC offered during onboarding
   
   // Deductions Config (Standard rates or fixed amounts)
   pfConfig         String   @default("STANDARD_12") // STANDARD_12, FIXED_AMOUNT, NONE
@@ -683,32 +770,49 @@ model Offer {
 // ─── Appraisal Cycle ──────────────────────────────────────────────────────────
 
 model AppraisalCycle {
-  id        String          @id @default(uuid())
-  quarter   Int             // 1-4
-  year      Int
-  status    AppraisalStatus @default(OPEN)
-  goals     AppraisalGoal[]
-  reviews   AppraisalReview[]
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  id          String          @id @default(uuid())
+  quarter     Int             // 1-4
+  year        Int
+  status      AppraisalStatus @default(OPEN)
+  phase       String          @default("GOAL_SETTING") // GOAL_SETTING | GOALS_APPROVED | SELF_REVIEW | MANAGER_REVIEW | HR_FINAL | COMPLETED
+  goals       AppraisalGoal[]
+  reviews     AppraisalReview[]
+  teamBudgets TeamBudget[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   @@unique([quarter, year])
 }
 
 model AppraisalGoal {
-  id          String         @id @default(uuid())
-  cycleId     String
-  cycle       AppraisalCycle @relation(fields: [cycleId], references: [id])
-  userId      String
-  user        User           @relation("EmployeeGoals", fields: [userId], references: [id])
-  setById     String
-  setBy       User           @relation("ManagerGoals", fields: [setById], references: [id])
-  title       String
-  description String?
-  weight      Float          @default(100) // % weightage, sum should be 100
-  status      GoalStatus     @default(PENDING)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id                  String         @id @default(uuid())
+  cycleId             String
+  cycle               AppraisalCycle @relation(fields: [cycleId], references: [id])
+  userId              String
+  user                User           @relation("EmployeeGoals", fields: [userId], references: [id])
+  setById             String
+  setBy               User           @relation("ManagerGoals", fields: [setById], references: [id])
+  title               String
+  description         String?
+  kraCategory         String?        // e.g. "Delivery", "Quality", "Innovation"
+  weight              Float          @default(100)
+  status              GoalStatus     @default(PENDING)
+  hrApproved          Boolean        @default(false)
+  // Employee Goal Acceptance
+  acceptedByEmployee  Boolean        @default(false)
+  employeeConcern     String?        // Concern raised by employee
+  acceptedAt          DateTime?
+  // Self Review (per goal)
+  selfRating          Float?         // 1-5 stars
+  selfComment         String?
+  selfAttachmentUrl   String?
+  selfSubmittedAt     DateTime?
+  // Manager Review (per goal)
+  managerRating       Float?         // 1-5 stars
+  managerComment      String?
+  managerReviewedAt   DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
 }
 
 model AppraisalReview {
@@ -731,16 +835,75 @@ model AppraisalReview {
   managerApproved Boolean        @default(false)
   managerReviewedAt DateTime?
 
+  // Annual / Final (Q4)
+  annualSelfRating    Float?         // Employee's Q4 annual self-rating
+  managerFinalRating  Float?         // Manager's final annual rating (step 9)
+  finalApprovedBy     String?        // Owner/Admin/HR user ID who approved
+  finalApprovedAt     DateTime?
+  letterSentAt        DateTime?      // When appraisal letter was generated
+
   // HR / Final
   finalRating     Float?         // Computed: avg of 4 quarters
   salaryHike      Float?         // % hike
   hikeAmount      Float?         // Absolute ₹ amount
+  newCTC          Float?         // Revised annual CTC post appraisal
   hrApproved      Boolean        @default(false)
   publishedAt     DateTime?
+  pdfUrl          String?        // Appraisal letter PDF path
 
   status          ReviewStatus   @default(PENDING)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+
+  @@unique([cycleId, userId])
+}
+
+// ─── Offboarding ─────────────────────────────────────────────────────────────
+
+model OffboardingRequest {
+  id                  String    @id @default(uuid())
+  userId              String    @unique
+  user                User      @relation(fields: [userId], references: [id])
+  lastDay             DateTime
+  reason              String?
+  initiatedBy         String    @default("SELF") // SELF | HR
+  managerApprovedAt   DateTime?
+  itClearedAt         DateTime?
+  hrApprovedAt        DateTime?
+  status              String    @default("PENDING") // PENDING | MANAGER_APPROVED | IT_CLEARED | HR_APPROVED | COMPLETED
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+// ─── Appraisal Budget & Hike ─────────────────────────────────────────────────
+
+model TeamBudget {
+  id             String         @id @default(uuid())
+  cycleId        String
+  cycle          AppraisalCycle @relation(fields: [cycleId], references: [id])
+  managerId      String
+  departmentId   String?
+  totalBudget    Float          // ₹ allocated by Owner
+  usedBudget     Float          @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([cycleId, managerId])
+}
+
+model HikeAllocation {
+  id            String    @id @default(uuid())
+  cycleId       String
+  userId        String
+  managerId     String
+  hikePercent   Float
+  hikeAmount    Float
+  newCTC        Float
+  effectiveDate DateTime?
+  approvedAt    DateTime?
+  pdfUrl        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@unique([cycleId, userId])
 }
@@ -766,4 +929,489 @@ enum ReviewStatus {
   MANAGER_DONE
   HR_APPROVED
   PUBLISHED
+}
+
+// ─── Asset Management ─────────────────────────────────────────────────────────
+
+enum AssetCategory {
+  LAPTOP
+  DESKTOP
+  SERVER
+  WIRED_KEYBOARD
+  WIRED_MOUSE
+  WIRELESS_KEYBOARD
+  WIRELESS_MOUSE
+  WEBCAM
+  DOCKING_STATION
+  MONITOR
+  NETWORK_SWITCH
+  FIREWALL
+  ROUTER
+  OTHER
+}
+
+enum AssetStatus {
+  IN_STOCK
+  POPS
+  ASSIGNED
+  RETIRED
+}
+
+model Asset {
+  id             String        @id @default(uuid())
+  serialNumber   String        @unique
+  name           String
+  category       AssetCategory @default(OTHER)
+  status         AssetStatus   @default(IN_STOCK)
+  configuration  Json?
+  warrantyExpiry DateTime?
+  assetId        String?       @unique
+  
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  
+  officeId       String?
+  office         Office?       @relation(fields: [officeId], references: [id])
+  
+  assignedToId   String?
+  assignedTo     User?         @relation(fields: [assignedToId], references: [id])
+  
+  qrCodeUrl      String?
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+// ─── SERVICE DESK / ITSM ──────────────────────────────────────────────────────
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  ON_HOLD
+  WAITING_FOR_USER
+  PENDING_VENDOR
+  PENDING_OTHER
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TicketType {
+  INCIDENT
+  SERVICE_REQUEST
+}
+
+enum ChangeStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  IMPLEMENTING
+  IMPLEMENTED
+  PIR_PENDING
+  CLOSED
+}
+
+enum ChangeRisk {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ChangeType {
+  STANDARD
+  NORMAL
+  EMERGENCY
+}
+
+enum ChangeImpact {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ChangeUrgency {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ProblemStatus {
+  OPEN
+  UNDER_INVESTIGATION
+  ROOT_CAUSE_IDENTIFIED
+  KNOWN_ERROR
+  CLOSED
+}
+
+enum CMDBItemType {
+  SERVER
+  VM
+  DATABASE
+  APPLICATION
+  NETWORK
+  ENDPOINT
+  SERVICE
+  STORAGE
+  OTHER
+}
+
+enum CMDBItemStatus {
+  ACTIVE
+  INACTIVE
+  RETIRED
+}
+
+enum CMDBEnvironment {
+  PROD
+  UAT
+  DEV
+  DR
+  STAGING
+}
+
+enum CMDBRelationshipType {
+  DEPENDS_ON
+  HOSTS
+  RUNS_ON
+  CONNECTS_TO
+  BACKED_UP_BY
+  PART_OF
+}
+
+// SLA Policy
+model SLAPolicy {
+  id                    String         @id @default(uuid())
+  name                  String
+  priority              TicketPriority
+  ticketType            TicketType
+  responseTimeMinutes   Int
+  resolutionTimeMinutes Int
+  isActive              Boolean        @default(true)
+  organizationId        String
+  tickets               Ticket[]
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+}
+
+// Service Desk Team
+model ServiceDeskTeam {
+  id             String                @id @default(uuid())
+  name           String
+  description    String?
+  organizationId String
+  members        ServiceDeskMember[]
+  categories     TicketCategoryModel[]
+  tickets        Ticket[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@unique([name, organizationId])
+}
+
+model ServiceDeskMember {
+  id     String          @id @default(uuid())
+  teamId String
+  team   ServiceDeskTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId String
+  isLead Boolean         @default(false)
+
+  @@unique([teamId, userId])
+}
+
+// Ticket Category
+model TicketCategoryModel {
+  id             String           @id @default(uuid())
+  name           String
+  ticketType     TicketType       @default(INCIDENT)
+  teamId         String?
+  team           ServiceDeskTeam? @relation(fields: [teamId], references: [id])
+  organizationId String
+  tickets        Ticket[]
+  problems       Problem[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([name, organizationId])
+}
+
+// Main Ticket
+model Ticket {
+  id               String               @id @default(uuid())
+  ticketNumber     String               @unique
+  title            String
+  description      String
+  type             TicketType           @default(INCIDENT)
+  status           TicketStatus         @default(OPEN)
+  priority         TicketPriority       @default(MEDIUM)
+
+  requesterId      String
+  requester        User                 @relation("TicketRequester", fields: [requesterId], references: [id])
+
+  assigneeId       String?
+  assignee         User?                @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  teamId           String?
+  team             ServiceDeskTeam?     @relation(fields: [teamId], references: [id])
+
+  categoryId       String?
+  category         TicketCategoryModel? @relation(fields: [categoryId], references: [id])
+  slaId            String?
+  sla              SLAPolicy?           @relation(fields: [slaId], references: [id])
+  slaResponseDue   DateTime?
+  slaResolutionDue DateTime?
+  slaBreached      Boolean              @default(false)
+
+  ciId             String?
+  ci               CMDBItem?            @relation(fields: [ciId], references: [id])
+
+  problemId        String?
+  problem          Problem?             @relation(fields: [problemId], references: [id])
+  changeRequestId  String?
+  changeRequest    ChangeRequest?       @relation(fields: [changeRequestId], references: [id])
+
+  resolvedAt       DateTime?
+  closedAt         DateTime?
+  resolution       String?
+
+  comments         TicketComment[]
+  activities       TicketActivity[]
+  attachmentUrls   String[]             @default([])
+
+  organizationId   String
+
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+}
+
+model TicketComment {
+  id         String   @id @default(uuid())
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId   String
+  body       String
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model TicketActivity {
+  id        String   @id @default(uuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actorId   String
+  action    String
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime @default(now())
+}
+
+// Change Request (RFC)
+model ChangeRequest {
+  id             String          @id @default(uuid())
+  changeNumber   String          @unique
+  title          String
+  description    String
+  risk           ChangeRisk      @default(LOW)
+  status         ChangeStatus    @default(DRAFT)
+  
+  type           ChangeType      @default(NORMAL)
+  impact         ChangeImpact    @default(LOW)
+  urgency        ChangeUrgency   @default(LOW)
+
+  justification      String?
+  implementationPlan String?
+  testPlan           String?
+
+  requesterId    String
+  approvedById   String?
+
+  cabMeetingDate DateTime?
+  plannedStart   DateTime?
+  plannedEnd     DateTime?
+  actualStart    DateTime?
+  actualEnd      DateTime?
+  rollbackPlan   String?
+  pirNotes       String?
+
+  linkedTickets  Ticket[]
+  linkedCIs      ChangeRequestCI[]
+  comments       ChangeComment[]
+  
+  attachmentUrls String[]             @default([])
+  assignmentGroupId String?
+  assignmentGroup   Department?       @relation("ChangeGroup", fields: [assignmentGroupId], references: [id])
+  implementerId     String?
+  implementer       User?             @relation("ChangeImplementer", fields: [implementerId], references: [id])
+  approvers         ChangeApproval[]
+  activities        ChangeActivity[]
+
+  organizationId String
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model ChangeRequestCI {
+  id              String        @id @default(uuid())
+  changeRequestId String
+  changeRequest   ChangeRequest @relation(fields: [changeRequestId], references: [id], onDelete: Cascade)
+  ciId            String
+  ci              CMDBItem      @relation(fields: [ciId], references: [id])
+
+  @@unique([changeRequestId, ciId])
+}
+
+model ChangeComment {
+  id              String        @id @default(uuid())
+  changeRequestId String
+  change          ChangeRequest @relation(fields: [changeRequestId], references: [id], onDelete: Cascade)
+  authorId        String
+  body            String
+  createdAt       DateTime      @default(now())
+}
+
+model ChangeApproval {
+  id              String        @id @default(uuid())
+  changeRequestId String
+  change          ChangeRequest @relation(fields: [changeRequestId], references: [id], onDelete: Cascade)
+  approverId      String
+  approver        User          @relation(fields: [approverId], references: [id])
+  status          RequestStatus @default(PENDING)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([changeRequestId, approverId])
+}
+
+model ChangeActivity {
+  id              String        @id @default(uuid())
+  changeRequestId String
+  change          ChangeRequest @relation(fields: [changeRequestId], references: [id], onDelete: Cascade)
+  actorId         String
+  action          String
+  oldValue        String?
+  newValue        String?
+  createdAt       DateTime      @default(now())
+}
+
+// Problem Record
+model Problem {
+  id               String           @id @default(uuid())
+  problemNumber    String           @unique
+  title            String
+  description      String
+  status           ProblemStatus    @default(OPEN)
+
+  impact           TicketPriority  @default(LOW)
+  urgency          TicketPriority  @default(LOW)
+  priority         TicketPriority  @default(LOW)
+
+  categoryId       String?
+  category         TicketCategoryModel?  @relation(fields: [categoryId], references: [id])
+
+  assignmentGroupId String?
+  assignmentGroup  Department?      @relation("ProblemAssignmentGroup", fields: [assignmentGroupId], references: [id])
+  assigneeId       String?
+
+  attachmentUrls   String[]         @default([])
+
+  rootCause        String?
+  workaround       String?
+
+  linkedIncidents  Ticket[]
+  kedbEntry        KEDBEntry?
+  activities       ProblemActivity[]
+
+  organizationId   String
+
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model ProblemActivity {
+  id               String           @id @default(uuid())
+  problemId        String
+  problem          Problem          @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  actorId          String
+  actor            User?            @relation(fields: [actorId], references: [id])
+  action           String
+  oldValue         String?
+  newValue         String?
+  createdAt        DateTime         @default(now())
+}
+
+// Known Error Database
+model KEDBEntry {
+  id             String   @id @default(uuid())
+  title          String
+  symptoms       String
+  rootCause      String
+  workaround     String
+  resolution     String?
+  articleUrl     String?
+
+  problemId      String?  @unique
+  problem        Problem? @relation(fields: [problemId], references: [id])
+
+  createdById    String
+  organizationId String
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// CMDB – Configuration Item
+model CMDBItem {
+  id              String            @id @default(uuid())
+  ciNumber        String            @unique
+  name            String
+  type            CMDBItemType      @default(SERVER)
+  status          CMDBItemStatus    @default(ACTIVE)
+  environment     CMDBEnvironment   @default(PROD)
+
+  ownerId         String?
+  managedById     String?
+  ipAddress       String?
+  hostName        String?
+  location        String?
+  description     String?
+  attributes      Json?
+
+  relationsAsSource CMDBRelationship[]  @relation("SourceCI")
+  relationsAsTarget CMDBRelationship[]  @relation("TargetCI")
+
+  tickets           Ticket[]
+  changeRequests    ChangeRequestCI[]
+
+  organizationId  String
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model CMDBRelationship {
+  id               String               @id @default(uuid())
+  sourceId         String
+  source           CMDBItem             @relation("SourceCI", fields: [sourceId], references: [id], onDelete: Cascade)
+  targetId         String
+  target           CMDBItem             @relation("TargetCI", fields: [targetId], references: [id], onDelete: Cascade)
+  relationshipType CMDBRelationshipType @default(DEPENDS_ON)
+  createdAt        DateTime             @default(now())
+
+  @@unique([sourceId, targetId, relationshipType])
+}
+
+// Auto-incrementing counters for ticket/change/problem/CI numbers
+model ServiceDeskCounter {
+  id      String @id @default(uuid())
+  prefix  String @unique
+  current Int    @default(0)
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "Ticket" ADD COLUMN "attachmentUrls" TEXT[] DEFAULT ARRAY[]::TEXT[];

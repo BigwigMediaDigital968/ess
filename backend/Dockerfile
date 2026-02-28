@@ -1,6 +1,7 @@
-FROM node:18-slim AS builder
+FROM node:20-alpine AS builder
 
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+# Add tini for proper signal handling in production
+RUN apk add --no-cache tini openssl
 
 WORKDIR /app
 
@@ -8,26 +9,33 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY prisma ./prisma
-RUN npx prisma generate
-
 COPY . .
 
-# ---------- Production stage ----------
-FROM node:18-slim
+# Generate Prisma client AFTER all files are copied so the correct schema is always used
+RUN npx prisma generate
 
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+# ---------- Production stage ----------
+FROM node:20-alpine AS production
+
+RUN apk add --no-cache tini openssl
 
 WORKDIR /app
 
+# Copy from builder
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/package.json ./
 
-RUN mkdir -p uploads/profiles uploads/certs uploads/experience && chown -R node:node /app
+# Create directories and set correct ownership purely for node user
+RUN mkdir -p uploads/profiles uploads/certs uploads/experience uploads/logos uploads/resumes && \
+    chown -R node:node /app
 
+# Switch to non-root user
 USER node
 
 EXPOSE 3434
 
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["sh", "-c", "npx prisma migrate deploy && node prisma/seed.js && node src/index.js"]

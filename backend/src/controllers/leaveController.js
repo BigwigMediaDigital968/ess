@@ -187,7 +187,14 @@ exports.getMyLeaves = async (req, res) => {
     try {
         const leaves = await prisma.leave.findMany({
             where: { userId: req.user.id },
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
+            include: {
+                user: {
+                    include: {
+                        manager: { select: { name: true } }
+                    }
+                }
+            }
         });
         res.json(leaves);
     } catch (error) {

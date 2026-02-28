@@ -1,5 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Attendance from "./pages/Attendance";
@@ -23,8 +25,24 @@ import RosterManagement from "./pages/RosterManagement";
 import MyRoster from "./pages/MyRoster";
 import MySalarySlips from "./pages/MySalarySlips";
 import BrandingSettings from "./pages/BrandingSettings";
+import AssetManagement from "./pages/AssetManagement";
+import OfficeManagement from "./pages/OfficeManagement";
+import OfficeVisitApprovals from "./pages/OfficeVisitApprovals";
+import Offboarding from "./pages/Offboarding";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
+
+// Service Desk
+import ServiceDeskPortal from "./pages/servicedesk/ServiceDeskPortal";
+import IncidentManagement from "./pages/servicedesk/IncidentManagement";
+import ChangeManagement from "./pages/servicedesk/ChangeManagement";
+import ProblemManagement from "./pages/servicedesk/ProblemManagement";
+import CMDB from "./pages/servicedesk/CMDB";
+import KEDB from "./pages/servicedesk/KEDB";
+import SLADashboard from "./pages/servicedesk/SLADashboard";
+import ServiceDeskAdmin from "./pages/servicedesk/ServiceDeskAdmin";
+import ServiceDeskDashboard from "./pages/servicedesk/ServiceDeskDashboard";
+import ServiceDeskReports from "./pages/servicedesk/ServiceDeskReports";
 
 function App() {
   return (
@@ -32,6 +50,8 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
@@ -57,6 +77,22 @@ function App() {
             <Route path="/my-roster" element={<MyRoster />} />
             <Route path="/salary-slips" element={<MySalarySlips />} />
             <Route path="/branding" element={<BrandingSettings />} />
+            <Route path="/assets" element={<AssetManagement />} />
+            <Route path="/offices" element={<OfficeManagement />} />
+            <Route path="/office-visits" element={<OfficeVisitApprovals />} />
+            <Route path="/offboarding" element={<Offboarding />} />
+
+            {/* Service Desk Routes */}
+            <Route path="/servicedesk" element={<ServiceDeskPortal />} />
+            <Route path="/servicedesk/dashboard" element={<ServiceDeskDashboard />} />
+            <Route path="/servicedesk/incidents" element={<IncidentManagement />} />
+            <Route path="/servicedesk/changes" element={<ChangeManagement />} />
+            <Route path="/servicedesk/problems" element={<ProblemManagement />} />
+            <Route path="/servicedesk/cmdb" element={<CMDB />} />
+            <Route path="/servicedesk/kedb" element={<KEDB />} />
+            <Route path="/servicedesk/sla" element={<SLADashboard />} />
+            <Route path="/servicedesk/reports" element={<ServiceDeskReports />} />
+            <Route path="/servicedesk/admin" element={<ServiceDeskAdmin />} />
 
             <Route path="/documents" element={<div className="text-white p-4">Documents Module Mock</div>} />
           </Route>

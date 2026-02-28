@@ -5,12 +5,17 @@ import { Navigate, Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import ChatWidget from "./ChatWidget";
 import { Menu } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const Layout = () => {
     const { user, loading } = useAuth();
-    const { logoSrc, orgName } = useTheme();
+    const { logoSrc, orgName, refreshBranding } = useTheme();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+
+    // Re-fetch branding whenever the user logs in to get the latest org name/logo
+    useEffect(() => {
+        if (user) refreshBranding();
+    }, [user?.id]);
 
     if (loading) return <div className="flex h-screen items-center justify-center text-white">Loading...</div>;
     if (!user) return <Navigate to="/login" />;

@@ -6,6 +6,7 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 
 // HR, Director, and Owner can manage salary structures
 router.post('/structure', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIRECTOR'), salaryController.upsertSalaryStructure);
+router.post('/structure-from-ctc', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIRECTOR'), salaryController.structureFromCTC);
 router.get('/structure/:userId', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIRECTOR'), salaryController.getSalaryStructure);
 router.get('/all', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIRECTOR'), salaryController.getAllEmployeeSalaries);
 router.get('/preview/:userId', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIRECTOR'), salaryController.computeSalaryPreview);
@@ -18,6 +19,15 @@ router.get('/payroll/:userId', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIREC
 // ─── Salary Slip (PDF data + chat delivery) ───────────────────────────────────
 router.get('/slip-data', protect, salarySlipController.getSalarySlipData);
 router.post('/slip-send', protect, salarySlipController.sendSalarySlipToChat);
+
+// ─── Excel Export ─────────────────────────────────────────────────────────────
+router.get('/export-excel', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIRECTOR'), salaryController.exportSalaryExcel);
+
+// ─── Attendance-based Payroll Auto-Generation ────────────────────────────────
+router.post('/generate-from-attendance', protect, authorize('HR', 'ADMIN', 'OWNER', 'DIRECTOR'), salaryController.generatePayrollFromAttendance);
+
+// ─── Direct PDF Download ──────────────────────────────────────────────────────
+router.get('/slip-pdf', protect, salarySlipController.downloadSalarySlipPdf);
 
 module.exports = router;
 

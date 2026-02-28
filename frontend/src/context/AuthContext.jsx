@@ -37,6 +37,9 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (email, password, role) => {
         const { data } = await api.post("/auth/login", { email, password, role });
+        if (data.requiresPasswordChange) {
+            return data;
+        }
         localStorage.setItem("token", data.token);
         api.defaults.headers.common["Authorization"] = `Bearer ${data.token}`;
         setUser(data);

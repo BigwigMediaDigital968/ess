@@ -176,14 +176,78 @@ const Leaves = () => {
             {activeTab === "history" && (
                 <div className="grid gap-4">
                     {leaves.map(leave => (
-                        <Card key={leave.id} className="flex justify-between items-center">
-                            <div>
-                                <h4 className="font-bold text-white">{leave.type}</h4>
-                                <p className="text-sm text-gray-400">{new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}</p>
-                                <p className="text-xs text-gray-500">{leave.reason}</p>
+                        <Card key={leave.id} className="flex flex-col gap-4 bg-gradient-to-b from-white/5 to-transparent border border-white/10">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h4 className="font-bold text-white uppercase tracking-wide">{leave.type} LEAVE</h4>
+                                    <p className="text-sm text-gray-400 mt-1 flex items-center gap-1.5">
+                                        <Clock size={14} className="text-purple-400" />
+                                        {new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}
+                                    </p>
+                                    <div className="text-sm text-gray-300 mt-3 bg-black/40 p-3 rounded-lg border border-white/5">
+                                        <span className="text-gray-500 block text-xs mb-1 uppercase tracking-wider font-semibold">Reason for Leave</span>
+                                        {leave.reason}
+                                    </div>
+                                </div>
                             </div>
-                            <div className={`px-3 py-1 rounded text-sm ${leave.status === 'APPROVED' ? 'bg-green-500/20 text-green-400' : leave.status === 'REJECTED' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                                {leave.status}
+
+                            {/* Workflow Stepper */}
+                            <div className="mt-2 pt-5 border-t border-white/10">
+                                <h5 className="text-xs font-semibold text-gray-500 mb-6 uppercase tracking-wider">Approval Workflow</h5>
+                                <div className="flex items-center justify-between relative px-4">
+                                    {/* Line connecting steps */}
+                                    <div className="absolute top-4 left-4 right-4 h-0.5 bg-gray-800 -z-10 rounded"></div>
+                                    <div className={`absolute top-4 left-4 h-0.5 -z-10 rounded transition-all duration-1000 ease-in-out
+                                        ${leave.status === 'APPROVED' ? 'w-[calc(100%-2rem)] bg-green-500' :
+                                            leave.status === 'REJECTED' ? 'w-[calc(100%-2rem)] bg-red-500' : 'w-1/2 bg-purple-500'}`}></div>
+
+                                    {/* Step 1: Applied */}
+                                    <div className="flex flex-col items-center gap-3 bg-[var(--bg-surface)] px-2">
+                                        <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white shadow-[0_0_15px_rgba(34,197,94,0.4)]">
+                                            <Check size={16} />
+                                        </div>
+                                        <span className="text-xs text-gray-300 font-medium">Applied</span>
+                                    </div>
+
+                                    {/* Step 2: Manager Review */}
+                                    <div className="flex flex-col items-center gap-3 bg-[var(--bg-surface)] px-2">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 relative
+                                            ${leave.status === 'PENDING' ? 'border-purple-500 text-purple-400 bg-purple-900/30' :
+                                                leave.status === 'APPROVED' ? 'border-green-500 bg-green-500 text-white' :
+                                                    'border-red-500 bg-red-500 text-white'}`}>
+                                            {leave.status === 'PENDING' ? (
+                                                <>
+                                                    <div className="absolute inset-0 rounded-full border border-purple-500 animate-ping opacity-50"></div>
+                                                    <Clock size={16} className="relative z-10" />
+                                                </>
+                                            ) : leave.status === 'APPROVED' ? <Check size={16} /> : <X size={16} />}
+                                        </div>
+                                        <div className="text-center">
+                                            <span className={`text-xs font-medium block ${leave.status === 'PENDING' ? 'text-purple-400' : 'text-gray-300'}`}>
+                                                Manager Review
+                                            </span>
+                                            <span className="text-[10px] text-gray-500 mt-0.5 block">
+                                                {leave.user?.manager ? `with ${leave.user.manager.name}` : 'Auto / HR'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Step 3: Final Decision */}
+                                    <div className="flex flex-col items-center gap-3 bg-[var(--bg-surface)] px-2">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-500
+                                            ${leave.status === 'PENDING' ? 'border-gray-700 text-gray-600 bg-gray-900' :
+                                                leave.status === 'APPROVED' ? 'border-green-500 bg-green-500 text-white shadow-[0_0_15px_rgba(34,197,94,0.4)]' :
+                                                    'border-red-500 bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]'}`}>
+                                            {leave.status === 'APPROVED' ? <Check size={16} /> :
+                                                leave.status === 'REJECTED' ? <X size={16} /> : <Clock size={16} />}
+                                        </div>
+                                        <span className={`text-xs font-bold uppercase tracking-wider ${leave.status === 'APPROVED' ? 'text-green-400' :
+                                                leave.status === 'REJECTED' ? 'text-red-400' : 'text-gray-600'
+                                            }`}>
+                                            {leave.status === 'PENDING' ? 'Decision' : leave.status}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                         </Card>
                     ))}

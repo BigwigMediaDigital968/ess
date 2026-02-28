@@ -1,67 +1,163 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// POST /api/employees/:id/offboard
+// Legacy exports expected by employeeRoutes.js
 exports.offboardEmployee = async (req, res) => {
-    const { id } = req.params;
-    const { exitDate, exitReason, exitNotes } = req.body;
+    // Redirect to the new offboarding workflow create
+    req.body.userId = req.params.id;
+    return exports.createOffboarding(req, res);
+};
 
+exports.reactivateEmployee = async (req, res) => {
     try {
-        const employee = await prisma.user.findUnique({ where: { id } });
-        if (!employee) {
-            return res.status(404).json({ message: 'Employee not found' });
+        const { id } = req.params;
+        const existing = await prisma.offboardingRequest.findUnique({ where: { userId: id } });
+        if (existing) {
+            await prisma.offboardingRequest.delete({ where: { userId: id } });
         }
-        if (!employee.isActive) {
-            return res.status(400).json({ message: 'Employee is already off-boarded' });
-        }
-
-        const updated = await prisma.user.update({
-            where: { id },
-            data: {
-                isActive: false,
-                exitDate: exitDate ? new Date(exitDate) : new Date(),
-                exitReason: exitReason || 'RESIGNATION',
-                exitNotes: exitNotes || null,
-            },
-            include: { role: true, department: true }
-        });
-
-        const { password: _, ...safeUser } = updated;
-        res.json({ message: 'Employee off-boarded successfully', user: safeUser });
+        res.json({ message: 'Employee reactivated.' });
     } catch (error) {
-        console.error('Off-boarding error:', error);
-        res.status(500).json({ message: 'Off-boarding failed', error: error.message });
+        res.status(500).json({ message: error.message });
     }
 };
 
-// POST /api/employees/:id/reactivate
-exports.reactivateEmployee = async (req, res) => {
-    const { id } = req.params;
-
+// Employee or HR self-initiates offboarding / resignation
+exports.createOffboarding = async (req, res) => {
     try {
-        const employee = await prisma.user.findUnique({ where: { id } });
-        if (!employee) {
-            return res.status(404).json({ message: 'Employee not found' });
-        }
-        if (employee.isActive) {
-            return res.status(400).json({ message: 'Employee is already active' });
+        const requesterId = req.user.id;
+        const role = req.user.LegacyRole;
+        const { userId, lastDay, reason } = req.body;
+
+        const targetId = userId || requesterId;
+        const initiatedBy = (targetId === requesterId) ? 'SELF' : 'HR';
+
+        if (targetId !== requesterId && !['HR', 'ADMIN', 'OWNER', 'DIRECTOR'].includes(role)) {
+            return res.status(403).json({ message: 'Only HR/Owner can initiate offboarding for another employee.' });
         }
 
-        const updated = await prisma.user.update({
-            where: { id },
+        const existing = await prisma.offboardingRequest.findUnique({ where: { userId: targetId } });
+        if (existing) return res.status(400).json({ message: 'Offboarding request already exists.' });
+
+        const request = await prisma.offboardingRequest.create({
             data: {
-                isActive: true,
-                exitDate: null,
-                exitReason: null,
-                exitNotes: null,
+                userId: targetId,
+                lastDay: new Date(lastDay),
+                reason: reason || null,
+                initiatedBy,
+                status: 'PENDING'
             },
-            include: { role: true, department: true }
+            include: { user: { select: { id: true, name: true, email: true, designation: true, manager: { select: { id: true, name: true } } } } }
         });
 
-        const { password: _, ...safeUser } = updated;
-        res.json({ message: 'Employee reactivated successfully', user: safeUser });
+        res.status(201).json(request);
     } catch (error) {
-        console.error('Reactivation error:', error);
-        res.status(500).json({ message: 'Reactivation failed', error: error.message });
+        console.error('createOffboarding:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+exports.updateStep = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { step } = req.body;
+        const requesterId = req.user.id;
+        const role = req.user.LegacyRole;
+
+        const request = await prisma.offboardingRequest.findUnique({
+            where: { id },
+            include: { user: { select: { managerId: true } } }
+        });
+        if (!request) return res.status(404).json({ message: 'Not found.' });
+
+        let update = {};
+        const now = new Date();
+
+        if (step === 'MANAGER') {
+            if (request.user.managerId !== requesterId && !['HR', 'ADMIN', 'OWNER', 'DIRECTOR'].includes(role)) {
+                return res.status(403).json({ message: 'Only the direct manager can approve this step.' });
+            }
+            update = { managerApprovedAt: now, status: 'MANAGER_APPROVED' };
+        } else if (step === 'IT') {
+            // IT/Platform Operations step: only ADMIN or OWNER can clear
+            if (!['ADMIN', 'OWNER'].includes(role)) {
+                return res.status(403).json({ message: 'Only Platform Operations (Admin/Owner) can mark IT clearance.' });
+            }
+            update = { itClearedAt: now, status: 'IT_CLEARED' };
+        } else if (step === 'HR') {
+            // HR final step: only HR role can approve
+            if (role !== 'HR') {
+                return res.status(403).json({ message: 'Only HR team can approve the final HR step.' });
+            }
+            update = { hrApprovedAt: now, status: 'COMPLETED' };
+        } else {
+            return res.status(400).json({ message: 'Invalid step.' });
+        }
+
+        const updated = await prisma.offboardingRequest.update({
+            where: { id },
+            data: update,
+            include: { user: { select: { id: true, name: true, email: true } } }
+        });
+        res.json(updated);
+    } catch (error) {
+        console.error('updateStep:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+exports.getMyOffboarding = async (req, res) => {
+    try {
+        const request = await prisma.offboardingRequest.findUnique({
+            where: { userId: req.user.id },
+            include: { user: { select: { name: true, designation: true, manager: { select: { name: true } } } } }
+        });
+        res.json(request || null);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+exports.getTeamOffboarding = async (req, res) => {
+    try {
+        const role = req.user.LegacyRole;
+        const requesterId = req.user.id;
+        const isPrivileged = ['HR', 'ADMIN', 'OWNER', 'DIRECTOR'].includes(role);
+
+        const requests = await prisma.offboardingRequest.findMany({
+            where: isPrivileged ? {} : { user: { managerId: requesterId } },
+            include: {
+                user: {
+                    select: {
+                        id: true, name: true, email: true, designation: true, profilePictureUrl: true,
+                        manager: { select: { id: true, name: true } },
+                        department: { select: { name: true } }
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(requests);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+exports.cancelOffboarding = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const requesterId = req.user.id;
+        const role = req.user.LegacyRole;
+
+        const request = await prisma.offboardingRequest.findUnique({ where: { id } });
+        if (!request) return res.status(404).json({ message: 'Not found.' });
+
+        if (request.userId !== requesterId && !['HR', 'ADMIN', 'OWNER', 'DIRECTOR'].includes(role)) {
+            return res.status(403).json({ message: 'Access denied.' });
+        }
+
+        await prisma.offboardingRequest.delete({ where: { id } });
+        res.json({ message: 'Offboarding cancelled.' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
 };
