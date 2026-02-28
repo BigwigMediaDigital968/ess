@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Office" ADD COLUMN     "name" TEXT NOT NULL DEFAULT 'Main Office';
+ALTER TABLE "Office" ALTER COLUMN "name" DROP DEFAULT;
