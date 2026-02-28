@@ -42,6 +42,9 @@ const corsOptions = {
             process.env.ALLOWED_ORIGINS,
             'http://localhost:5173',
             'http://localhost:3000',
+            'http://135.181.104.191:5173',
+            'http://135.181.104.191',
+            'https://135.181.104.191',
         ].filter(Boolean);
 
         // Allow same-origin and non-browser requests

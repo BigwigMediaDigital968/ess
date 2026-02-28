@@ -31,6 +31,9 @@ const allowedOrigins = [
     process.env.ALLOWED_ORIGINS,
     'http://localhost:5173',
     'http://localhost:3000',
+    'http://135.181.104.191:5173',
+    'http://135.181.104.191',
+    'https://135.181.104.191',
 ].filter(Boolean);
 
 const io = new Server(server, {
