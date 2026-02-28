@@ -34,6 +34,8 @@ const allowedOrigins = [
     'http://135.181.104.191:5173',
     'http://135.181.104.191',
     'https://135.181.104.191',
+    'https://ess.bigwigmediadigital.com',
+    'http://ess.bigwigmediadigital.com',
 ].filter(Boolean);
 
 const io = new Server(server, {
