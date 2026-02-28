@@ -44,7 +44,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./backend/uploads:/app/uploads
+      - ess_uploads:/app/uploads
   frontend:
     build:
       context: ./frontend
@@ -99,5 +99,4 @@ volumes:
   postgres_data:
   nextcloud_data:
   redis_data:
-
-
+  ess_uploads:
