@@ -21,13 +21,13 @@ const storage = multer.diskStorage({
 const upload = multer({
     storage,
     fileFilter: function (req, file, cb) {
-        const filetypes = /jpeg|jpg|png|gif/;
-        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-        const mimetype = filetypes.test(file.mimetype);
-        if (mimetype && extname) {
+        const filetypes = /jpeg|jpg|png|svg\+xml/;
+        const extname = /\.(jpeg|jpg|png|svg)$/i.test(file.originalname);
+        const mimetype = /image\/(jpeg|png|svg\+xml)/i.test(file.mimetype);
+        if (mimetype || extname) {
             return cb(null, true);
         } else {
-            cb('Images only!');
+            cb('Images only! (JPEG, PNG, SVG)');
         }
     },
 }).single('logo');
