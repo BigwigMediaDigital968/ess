@@ -300,6 +300,7 @@ model Department {
 
 model Office {
   id             String       @id @default(uuid())
+  name           String
   address        String?
   latitude       Float
   longitude      Float
