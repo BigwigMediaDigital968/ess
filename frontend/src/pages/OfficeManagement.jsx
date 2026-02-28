@@ -57,11 +57,29 @@ const OfficeManagement = () => {
         }
     };
 
-    const detectLocation = () => {
+    const detectLocation = async () => {
         if (!navigator.geolocation) {
             alert("Geolocation is not supported by your browser");
             return;
         }
+
+        if (window.isSecureContext === false) {
+            try {
+                const res = await fetch('https://ipapi.co/json/');
+                const data = await res.json();
+                if (data.latitude && data.longitude) {
+                    setFormData({ ...formData, latitude: data.latitude, longitude: data.longitude });
+                    alert("Using IP-based location (No HTTPS detected)");
+                } else {
+                    throw new Error("IP fetch failed");
+                }
+            } catch (err) {
+                setFormData({ ...formData, latitude: 28.6139, longitude: 77.2090 });
+                alert("Using mock location (HTTPS required for real GPS)");
+            }
+            return;
+        }
+
         navigator.geolocation.getCurrentPosition(
             (pos) => setFormData({ ...formData, latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
             (err) => alert("Could not fetch location automatically.")

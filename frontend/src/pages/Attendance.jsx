@@ -55,11 +55,39 @@ const Attendance = () => {
         }
     };
 
-    const getLocation = () => {
+    const getLocation = async () => {
         if (!navigator.geolocation) {
             setError("Geolocation is not supported by your browser");
             return;
         }
+
+        // Insecure contexts (HTTP) will instantly fail geolocation in Chrome
+        if (window.isSecureContext === false) {
+            // Fallback for demo/testing without SSL
+            try {
+                setLoading(true);
+                // Simple IP tracking fallback
+                const res = await fetch('https://ipapi.co/json/');
+                const data = await res.json();
+                if (data.latitude && data.longitude) {
+                    setLocation({
+                        latitude: data.latitude,
+                        longitude: data.longitude,
+                    });
+                    setError("Using IP-based location (No HTTPS detected)");
+                } else {
+                    throw new Error("IP Geolocation failed");
+                }
+            } catch (fallbackErr) {
+                // Absolute fallback - hardcoded reasonable coords for testing
+                setLocation({ latitude: 28.6139, longitude: 77.2090 });
+                setError("Using mock location for testing (HTTPS required for real GPS)");
+            } finally {
+                setLoading(false);
+            }
+            return;
+        }
+
         setLoading(true);
         navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -71,9 +99,17 @@ const Attendance = () => {
                 setError("");
             },
             (err) => {
-                setError("Unable to retrieve your location");
+                console.error("Geolocation Error:", err);
+                if (err.code === 1) {
+                    setError("Location access denied by user. Please enable it in browser settings.");
+                } else if (err.code === 2) {
+                    setError("Location unavailable. Cannot determine position.");
+                } else {
+                    setError(`Unable to retrieve your location: ${err.message}`);
+                }
                 setLoading(false);
-            }
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     };
 

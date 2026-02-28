@@ -81,20 +81,42 @@ const Onboarding = () => {
         }
     };
 
-    const handleGeoLocation = () => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition((position) => {
-                setFormData(prev => ({
-                    ...prev,
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude
-                }));
-            }, (error) => {
-                alert("Error getting location: " + error.message);
-            });
-        } else {
+    const handleGeoLocation = async () => {
+        if (!navigator.geolocation) {
             alert("Geolocation is not supported by this browser.");
+            return;
         }
+
+        if (window.isSecureContext === false) {
+            try {
+                const res = await fetch('https://ipapi.co/json/');
+                const data = await res.json();
+                if (data.latitude && data.longitude) {
+                    setFormData(prev => ({
+                        ...prev,
+                        latitude: data.latitude,
+                        longitude: data.longitude
+                    }));
+                    alert("Using IP-based location (No HTTPS detected)");
+                } else {
+                    throw new Error("IP fetch failed");
+                }
+            } catch (err) {
+                setFormData(prev => ({ ...prev, latitude: 28.6139, longitude: 77.2090 }));
+                alert("Using mock location (HTTPS required for real GPS)");
+            }
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition((position) => {
+            setFormData(prev => ({
+                ...prev,
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude
+            }));
+        }, (error) => {
+            alert("Error getting location: " + error.message);
+        });
     };
 
     const handleFileChange = (e, type, index = null) => {
