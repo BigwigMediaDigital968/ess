@@ -23,6 +23,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 
 const app = express();
+app.enable('trust proxy'); // Required for express-rate-limit behind Nginx
 const server = http.createServer(app);
 
 const allowedOrigins = [
