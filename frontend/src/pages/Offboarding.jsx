@@ -328,7 +328,7 @@ const Offboarding = () => {
                                     <motion.div key={req.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                                         className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/8 transition-colors">
                                         <div className="flex items-start gap-4">
-                                            <img src={req.user.profilePictureUrl ? `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3434'}${req.user.profilePictureUrl}`
+                                            <img src={req.user.profilePictureUrl ? `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://ess.bigwigmediadigital.com:3434'}${req.user.profilePictureUrl}`
                                                 : `https://ui-avatars.com/api/?name=${req.user.name}&background=random`}
                                                 alt={req.user.name} className="w-12 h-12 rounded-full border-2 border-white/10" />
                                             <div className="flex-1 min-w-0">

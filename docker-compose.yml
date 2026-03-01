@@ -30,7 +30,7 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production}
       OIDC_ISSUER: ${OIDC_ISSUER:-http://ess_portal:3434}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      FRONTEND_URL: ${FRONTEND_URL:-http://ess.bigwigmediadigital.com:5173}
       REDIS_URL: redis://redis:6379
       PAYROLL_SVC_URL: http://payroll-service:3435
       NOTIF_SVC_URL: http://notification-svc:3436
@@ -49,7 +49,7 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:3434/api}
+        VITE_API_URL: ${VITE_API_URL:-http://ess.bigwigmediadigital.com:3434/api}
     container_name: ess_frontend
     restart: always
     ports:

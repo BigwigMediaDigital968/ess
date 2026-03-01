@@ -342,7 +342,7 @@ function TicketDetailModal({ ticket, onClose, onReply }) {
                             <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Attachments</p>
                             <div className="flex flex-wrap gap-3">
                                 {ticket.attachmentUrls.map((url, i) => (
-                                    <a key={i} href={`${import.meta.env.VITE_API_BASE_URL || "http://localhost:3434"}${url}`} target="_blank" rel="noreferrer"
+                                    <a key={i} href={`${import.meta.env.VITE_API_BASE_URL || "http://ess.bigwigmediadigital.com:3434"}${url}`} target="_blank" rel="noreferrer"
                                         className="bg-white/5 border border-white/10 hover:bg-white/10 px-4 py-3 rounded-xl flex items-center gap-2 transition"
                                     >
                                         <Package size={16} className="text-purple-400" />

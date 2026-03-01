@@ -9,7 +9,7 @@ RUN npm ci
 
 COPY . .
 
-ARG VITE_API_URL=http://localhost:3434/api
+ARG VITE_API_URL=http://ess.bigwigmediadigital.com:3434/api
 ENV VITE_API_URL=${VITE_API_URL}
 
 RUN npm run build

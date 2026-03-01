@@ -126,7 +126,7 @@ export default function ProblemManagement() {
 
     const availableSubcategories = categories.find(c => c.id === pForm.categoryId)?.subcategories || [];
     const activeSubcategories = categories.find(c => c.id === selected?.categoryId)?.subcategories || [];
-    const attachmentBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:3434';
+    const attachmentBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://ess.bigwigmediadigital.com:3434';
 
     return (
         <motion.div className="flex h-[calc(100vh-5rem)] gap-4 overflow-hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
