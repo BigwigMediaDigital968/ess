@@ -147,6 +147,8 @@ exports.login = async (req, res) => {
                 LegacyRole: user.LegacyRole,
                 isOwner,
                 profilePictureUrl: user.profilePictureUrl,
+                bloodGroup: user.bloodGroup,
+                address: user.address,
                 token: generateToken(user.id),
             });
         } else {
@@ -181,7 +183,9 @@ exports.getMe = async (req, res) => {
                 designation: user.designation,
                 department: user.department?.name,
                 profilePictureUrl: user.profilePictureUrl,
-                certifications: user.certifications
+                certifications: user.certifications,
+                bloodGroup: user.bloodGroup,
+                address: user.address
             });
         } else {
             res.status(404).json({ message: 'User not found' });

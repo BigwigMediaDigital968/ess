@@ -23,7 +23,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 
 const app = express();
-app.enable('trust proxy'); // Required for express-rate-limit behind Nginx
+app.set('trust proxy', 1); // Trust first proxy (Nginx) for express-rate-limit
 const server = http.createServer(app);
 
 const allowedOrigins = [
@@ -170,7 +170,7 @@ const oidcRoutes = require('./oidc/routes');
 const oidc = new Provider(process.env.OIDC_ISSUER || 'http://ess_portal:3434', oidcConfiguration);
 
 // Trust proxy if behind reverse proxy (Docker)
-app.enable('trust proxy');
+app.set('trust proxy', 1);
 oidc.proxy = true;
 
 app.use('/oidc', oidc.callback());

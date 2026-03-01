@@ -92,7 +92,7 @@ exports.getEmployeeById = async (req, res) => {
 };
 
 exports.updateProfile = async (req, res) => {
-    const { skills, address } = req.body;
+    const { skills, address, bloodGroup } = req.body;
     try {
         const updateData = {};
         if (skills) updateData.skills = skills.split(',').map(s => s.trim());
@@ -103,6 +103,7 @@ exports.updateProfile = async (req, res) => {
         }
         // Also handle address if needed, though usually admin updates it
         if (address !== undefined) updateData.address = address;
+        if (bloodGroup !== undefined) updateData.bloodGroup = bloodGroup;
 
         const user = await prisma.user.update({
             where: { id: req.user.id },
