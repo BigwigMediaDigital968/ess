@@ -5,7 +5,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-DOMAIN="${DOMAIN:?Set DOMAIN variable (e.g. ess.yourcompany.com)}"
+DOMAIN="${DOMAIN:?Set DOMAIN variable (e.g. ess.bigwigmediadigital.com)}"
 EMAIL="${EMAIL:?Set EMAIL for Let's Encrypt}"
 APP_DIR="/opt/ess-bsl"
 REPO_URL="${REPO_URL:-}"  # Optional: git clone URL

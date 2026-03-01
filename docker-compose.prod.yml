@@ -11,9 +11,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    # Do NOT expose port 5433 externally in production
-    expose:
-      - "5432"
+    # Expose port 5434 for Hetzner cloud
+    ports:
+      - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres-init:/docker-entrypoint-initdb.d:ro
@@ -102,7 +102,7 @@ services:
         VITE_API_URL: ${VITE_API_URL}
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "5173:80"
       - "443:443"
     depends_on:
       - backend
@@ -127,8 +127,8 @@ services:
   nextcloud:
     image: nextcloud:stable-apache
     restart: unless-stopped
-    expose:
-      - "80"
+    ports:
+      - "8081:80"
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_DB: nextcloud

@@ -10,7 +10,11 @@ const configuration = {
             client_id: 'nextcloud_client_id',
             client_secret: 'nextcloud_client_secret',
             grant_types: ['authorization_code', 'refresh_token'],
-            redirect_uris: ['http://localhost:8080/apps/user_oidc/code'],
+            redirect_uris: [
+                'http://localhost:8080/apps/user_oidc/code',
+                'http://ess.bigwigmediadigital.com:8081/apps/user_oidc/code',
+                'https://ess.bigwigmediadigital.com:8081/apps/user_oidc/code'
+            ],
             response_types: ['code'],
             scope: 'openid profile email groups',
         }

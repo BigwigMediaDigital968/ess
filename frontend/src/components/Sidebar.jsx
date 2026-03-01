@@ -139,7 +139,7 @@ const Sidebar = ({ open, setOpen, user, orgName, orgLogo }) => {
         { name: "Chat", path: "/chat", icon: MessageCircle },
         { name: "Directory", path: "/directory", icon: Users },
         { name: "Holidays", path: "/holidays", icon: Calendar },
-        { name: "Documents", path: "http://localhost:8080", icon: FileText, external: true },
+        { name: "Documents", path: "http://ess.bigwigmediadigital.com:8081", icon: FileText, external: true },
     ];
 
     const hrLinks = [
